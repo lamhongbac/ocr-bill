@@ -7,6 +7,7 @@ Phục vụ 3 User Story:
 Chạy trên FastAPI + MS-SQL Server (CLMHQ4GIGA)
 """
 import base64
+import hashlib
 import io
 import json
 import os
@@ -81,9 +82,12 @@ def _save_and_validate_image_bytes(
     image_bytes: bytes,
     original_filename: Optional[str] = None,
     custom_filename: Optional[str] = None
-) -> tuple[Path, str]:
+) -> tuple[Path, str, str]:
     if not image_bytes:
         raise HTTPException(status_code=400, detail="Dữ liệu ảnh rỗng")
+
+    # Tính mã SHA-256 nội dung ảnh để chống trùng lặp (Anti-duplicate)
+    file_hash = hashlib.sha256(image_bytes).hexdigest()
 
     # Kiểm tra tính hợp lệ bằng PIL
     try:
@@ -134,7 +138,7 @@ def _save_and_validate_image_bytes(
     with open(save_path, "wb") as f:
         f.write(image_bytes)
 
-    return save_path, saved_filename
+    return save_path, saved_filename, file_hash
 
 
 def run_background_ocr(bill_id: int, image_path: Path):
@@ -235,9 +239,25 @@ def get_stats():
 
 
 @app.get("/api/bills")
-def get_bills(status: str = "ALL", search: Optional[str] = None, page: int = 1, limit: int = 50):
+def get_bills(
+    status: str = "ALL",
+    edit_status: Optional[str] = None,
+    brand: Optional[str] = None,
+    outlet: Optional[str] = None,
+    search: Optional[str] = None,
+    page: int = 1,
+    limit: int = 50
+):
     try:
-        return db.get_bills(status=status, search=search, page=page, limit=limit)
+        return db.get_bills(
+            status=status,
+            edit_status=edit_status,
+            brand=brand,
+            outlet=outlet,
+            search=search,
+            page=page,
+            limit=limit
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -388,17 +408,22 @@ async def upload_bill_multipart(
         is_auto = _parse_bool(auto_ocr, default=True)
 
         content = await file.read()
-        save_path, saved_filename = _save_and_validate_image_bytes(
+        save_path, saved_filename, file_hash = _save_and_validate_image_bytes(
             content,
             original_filename=file.filename,
             custom_filename=filename
         )
+
+        # Kiểm tra trùng lặp ảnh (Duplicate Check)
+        duplicate_bill = db.find_duplicate_bill(file_hash)
+        is_duplicate = duplicate_bill is not None
 
         if not is_auto:
             bill_record = {
                 "filename": saved_filename,
                 "image_path": f"uploads/{saved_filename}",
                 "status": "PENDING",
+                "file_hash": file_hash,
                 "raw_brand": "",
                 "raw_outlet": "",
                 "outlet_number": None,
@@ -409,9 +434,9 @@ async def upload_bill_multipart(
                 "bill_total": 0,
                 "is_valid_bill": False,
                 "latency": 0.0,
-                "raw_output": "Chỉ lưu ảnh, không chạy OCR",
+                "raw_output": "Chỉ lưu ảnh, không chạy OCR" if not is_duplicate else f"Cảnh báo: Trùng với Bill #{duplicate_bill['BillId']} ({duplicate_bill['Filename']})",
                 "actor": actor,
-                "note": note,
+                "note": note if not is_duplicate else f"[TRÙNG LẶP Bill #{duplicate_bill['BillId']}] {note or ''}",
             }
             bill_id = db.insert_ocr_bill(bill_record)
             save_latency = round(time.time() - t0, 3)
@@ -421,11 +446,13 @@ async def upload_bill_multipart(
                 "filename": saved_filename,
                 "image_url": f"/api/images/{saved_filename}",
                 "file_path": f"uploads/{saved_filename}",
+                "is_duplicate": is_duplicate,
+                "duplicate_info": duplicate_bill,
                 "ocr_status": "SKIPPED",
                 "ocr_result": None,
                 "review_status": "PENDING",
                 "save_latency_seconds": save_latency,
-                "message": f"Ảnh đã lưu an toàn xuống đĩa máy chủ trong {save_latency}s."
+                "message": (f"Ảnh đã lưu an toàn trong {save_latency}s. " + (f"⚠️ CẢNH BÁO: Ảnh này trùng lặp với Bill #{duplicate_bill['BillId']}!" if is_duplicate else ""))
             }
 
         if is_async:
@@ -434,6 +461,7 @@ async def upload_bill_multipart(
                 "filename": saved_filename,
                 "image_path": f"uploads/{saved_filename}",
                 "status": "PENDING",
+                "file_hash": file_hash,
                 "raw_brand": "",
                 "raw_outlet": "",
                 "outlet_number": None,
@@ -444,9 +472,9 @@ async def upload_bill_multipart(
                 "bill_total": 0,
                 "is_valid_bill": False,
                 "latency": 0.0,
-                "raw_output": "Đang xếp hàng bóc tách OCR ngầm...",
+                "raw_output": "Đang xếp hàng bóc tách OCR ngầm..." if not is_duplicate else f"Cảnh báo: Trùng với Bill #{duplicate_bill['BillId']} ({duplicate_bill['Filename']})",
                 "actor": actor,
-                "note": note,
+                "note": note if not is_duplicate else f"[TRÙNG LẶP Bill #{duplicate_bill['BillId']}] {note or ''}",
             }
             bill_id = db.insert_ocr_bill(bill_record)
             background_tasks.add_task(run_background_ocr, bill_id, save_path)
@@ -458,11 +486,13 @@ async def upload_bill_multipart(
                 "filename": saved_filename,
                 "image_url": f"/api/images/{saved_filename}",
                 "file_path": f"uploads/{saved_filename}",
+                "is_duplicate": is_duplicate,
+                "duplicate_info": duplicate_bill,
                 "ocr_status": "PROCESSING",
                 "ocr_result": None,
                 "review_status": "PENDING",
                 "save_latency_seconds": save_latency,
-                "message": f"Ảnh đã lưu an toàn xuống đĩa máy chủ trong {save_latency}s. AI đang chạy bóc tách ngầm."
+                "message": (f"Ảnh đã lưu trong {save_latency}s. AI đang chạy ngầm. " + (f"⚠️ CẢNH BÁO: Ảnh này trùng lặp với Bill #{duplicate_bill['BillId']}!" if is_duplicate else ""))
             }
         else:
             # Luồng đồng bộ: Chờ OCR chạy xong mới phản hồi
@@ -489,6 +519,7 @@ async def upload_bill_multipart(
                 "filename": saved_filename,
                 "image_path": f"uploads/{saved_filename}",
                 "status": "PENDING",
+                "file_hash": file_hash,
                 "raw_brand": ocr_data["raw_brand"],
                 "raw_outlet": ocr_data["raw_outlet"],
                 "outlet_number": ocr_data["outlet_number"],
@@ -499,9 +530,9 @@ async def upload_bill_multipart(
                 "bill_total": ocr_data["bill_total"],
                 "is_valid_bill": ocr_data["is_valid_bill"],
                 "latency": ocr_data["latency"],
-                "raw_output": ocr_data["raw_output"],
+                "raw_output": ocr_data["raw_output"] if not is_duplicate else f"[TRÙNG LẶP Bill #{duplicate_bill['BillId']}] {ocr_data['raw_output']}",
                 "actor": actor,
-                "note": note,
+                "note": note if not is_duplicate else f"[TRÙNG LẶP Bill #{duplicate_bill['BillId']}] {note or ''}",
             }
             bill_id = db.insert_ocr_bill(bill_record)
             save_latency = round(time.time() - t0, 3)
@@ -512,11 +543,13 @@ async def upload_bill_multipart(
                 "filename": saved_filename,
                 "image_url": f"/api/images/{saved_filename}",
                 "file_path": f"uploads/{saved_filename}",
+                "is_duplicate": is_duplicate,
+                "duplicate_info": duplicate_bill,
                 "ocr_status": ocr_status,
                 "ocr_result": ocr_data,
                 "review_status": "PENDING",
                 "save_latency_seconds": save_latency,
-                "message": "Ảnh đã được lưu xuống đĩa máy chủ và hoàn tất bóc tách OCR." if ocr_status == "SUCCESS" else "Ảnh đã lưu vào đĩa thành công. OCR không đọc được, đã chuyển Admin duyệt tay."
+                "message": (f"Bóc tách OCR hoàn tất trong {save_latency}s. " + (f"⚠️ CẢNH BÁO: Hóa đơn này TRÙNG LẶP với Bill #{duplicate_bill['BillId']}!" if is_duplicate else ""))
             }
     except HTTPException:
         raise
@@ -546,16 +579,21 @@ def upload_bill_base64(req: UploadBase64Request, background_tasks: BackgroundTas
         except Exception:
             raise HTTPException(status_code=400, detail="Chuỗi Base64 không hợp lệ")
 
-        save_path, saved_filename = _save_and_validate_image_bytes(
+        save_path, saved_filename, file_hash = _save_and_validate_image_bytes(
             image_bytes,
             custom_filename=req.filename
         )
+
+        # Kiểm tra trùng lặp ảnh (Duplicate Check)
+        duplicate_bill = db.find_duplicate_bill(file_hash)
+        is_duplicate = duplicate_bill is not None
 
         if not is_auto:
             bill_record = {
                 "filename": saved_filename,
                 "image_path": f"uploads/{saved_filename}",
                 "status": "PENDING",
+                "file_hash": file_hash,
                 "raw_brand": "",
                 "raw_outlet": "",
                 "outlet_number": None,
@@ -566,9 +604,9 @@ def upload_bill_base64(req: UploadBase64Request, background_tasks: BackgroundTas
                 "bill_total": 0,
                 "is_valid_bill": False,
                 "latency": 0.0,
-                "raw_output": "Chỉ lưu ảnh, không chạy OCR",
+                "raw_output": "Chỉ lưu ảnh, không chạy OCR" if not is_duplicate else f"Cảnh báo: Trùng với Bill #{duplicate_bill['BillId']} ({duplicate_bill['Filename']})",
                 "actor": req.actor,
-                "note": req.note,
+                "note": req.note if not is_duplicate else f"[TRÙNG LẶP Bill #{duplicate_bill['BillId']}] {req.note or ''}",
             }
             bill_id = db.insert_ocr_bill(bill_record)
             save_latency = round(time.time() - t0, 3)
@@ -578,11 +616,13 @@ def upload_bill_base64(req: UploadBase64Request, background_tasks: BackgroundTas
                 "filename": saved_filename,
                 "image_url": f"/api/images/{saved_filename}",
                 "file_path": f"uploads/{saved_filename}",
+                "is_duplicate": is_duplicate,
+                "duplicate_info": duplicate_bill,
                 "ocr_status": "SKIPPED",
                 "ocr_result": None,
                 "review_status": "PENDING",
                 "save_latency_seconds": save_latency,
-                "message": f"Ảnh đã lưu an toàn xuống đĩa máy chủ trong {save_latency}s."
+                "message": (f"Ảnh đã lưu an toàn trong {save_latency}s." + (f" ⚠️ CẢNH BÁO: Trùng lặp với Bill #{duplicate_bill['BillId']}!" if is_duplicate else ""))
             }
 
         if is_async:
@@ -590,6 +630,7 @@ def upload_bill_base64(req: UploadBase64Request, background_tasks: BackgroundTas
                 "filename": saved_filename,
                 "image_path": f"uploads/{saved_filename}",
                 "status": "PENDING",
+                "file_hash": file_hash,
                 "raw_brand": "",
                 "raw_outlet": "",
                 "outlet_number": None,
@@ -600,9 +641,9 @@ def upload_bill_base64(req: UploadBase64Request, background_tasks: BackgroundTas
                 "bill_total": 0,
                 "is_valid_bill": False,
                 "latency": 0.0,
-                "raw_output": "Đang xếp hàng bóc tách OCR ngầm...",
+                "raw_output": "Đang xếp hàng bóc tách OCR ngầm..." if not is_duplicate else f"Cảnh báo: Trùng với Bill #{duplicate_bill['BillId']} ({duplicate_bill['Filename']})",
                 "actor": req.actor,
-                "note": req.note,
+                "note": req.note if not is_duplicate else f"[TRÙNG LẶP Bill #{duplicate_bill['BillId']}] {req.note or ''}",
             }
             bill_id = db.insert_ocr_bill(bill_record)
             background_tasks.add_task(run_background_ocr, bill_id, save_path)
@@ -614,11 +655,13 @@ def upload_bill_base64(req: UploadBase64Request, background_tasks: BackgroundTas
                 "filename": saved_filename,
                 "image_url": f"/api/images/{saved_filename}",
                 "file_path": f"uploads/{saved_filename}",
+                "is_duplicate": is_duplicate,
+                "duplicate_info": duplicate_bill,
                 "ocr_status": "PROCESSING",
                 "ocr_result": None,
                 "review_status": "PENDING",
                 "save_latency_seconds": save_latency,
-                "message": f"Ảnh đã lưu an toàn xuống đĩa máy chủ trong {save_latency}s. AI đang chạy bóc tách ngầm."
+                "message": (f"Ảnh đã lưu an toàn xuống đĩa máy chủ trong {save_latency}s. AI đang chạy bóc tách ngầm." + (f" ⚠️ CẢNH BÁO: Trùng lặp với Bill #{duplicate_bill['BillId']}!" if is_duplicate else ""))
             }
         else:
             try:
@@ -644,6 +687,7 @@ def upload_bill_base64(req: UploadBase64Request, background_tasks: BackgroundTas
                 "filename": saved_filename,
                 "image_path": f"uploads/{saved_filename}",
                 "status": "PENDING",
+                "file_hash": file_hash,
                 "raw_brand": ocr_data["raw_brand"],
                 "raw_outlet": ocr_data["raw_outlet"],
                 "outlet_number": ocr_data["outlet_number"],
@@ -654,9 +698,9 @@ def upload_bill_base64(req: UploadBase64Request, background_tasks: BackgroundTas
                 "bill_total": ocr_data["bill_total"],
                 "is_valid_bill": ocr_data["is_valid_bill"],
                 "latency": ocr_data["latency"],
-                "raw_output": ocr_data["raw_output"],
+                "raw_output": ocr_data["raw_output"] if not is_duplicate else f"[TRÙNG LẶP Bill #{duplicate_bill['BillId']}] {ocr_data['raw_output']}",
                 "actor": req.actor,
-                "note": req.note,
+                "note": req.note if not is_duplicate else f"[TRÙNG LẶP Bill #{duplicate_bill['BillId']}] {req.note or ''}",
             }
             bill_id = db.insert_ocr_bill(bill_record)
             save_latency = round(time.time() - t0, 3)
@@ -667,11 +711,13 @@ def upload_bill_base64(req: UploadBase64Request, background_tasks: BackgroundTas
                 "filename": saved_filename,
                 "image_url": f"/api/images/{saved_filename}",
                 "file_path": f"uploads/{saved_filename}",
+                "is_duplicate": is_duplicate,
+                "duplicate_info": duplicate_bill,
                 "ocr_status": ocr_status,
                 "ocr_result": ocr_data,
                 "review_status": "PENDING",
                 "save_latency_seconds": save_latency,
-                "message": "Ảnh đã được lưu xuống đĩa máy chủ và hoàn tất bóc tách OCR." if ocr_status == "SUCCESS" else "Ảnh đã lưu vào đĩa thành công. OCR không đọc được, đã chuyển Admin duyệt tay."
+                "message": (f"Ảnh đã được lưu và hoàn tất bóc tách OCR trong {save_latency}s." if ocr_status == "SUCCESS" else "Ảnh đã lưu vào đĩa thành công. OCR không đọc được, đã chuyển Admin duyệt tay.") + (f" ⚠️ CẢNH BÁO: Hóa đơn này TRÙNG LẶP với Bill #{duplicate_bill['BillId']}!" if is_duplicate else "")
             }
     except HTTPException:
         raise
@@ -691,19 +737,25 @@ async def extract_bill_alias(
     - Nhận ảnh qua multipart/form-data
     - Ưu tiên sử dụng tên file do CRM truyền (filename hoặc image_number)
     - Nếu không truyền thì OCR tự động sinh tên file (ocr_YYYYMMDD_HHMMSS_xxxxxx)
+    - Kiểm tra trùng lặp ảnh: nếu CRM upload lại bill đã có, thông báo rõ trong payload
     - Thực hiện OCR đồng bộ và trả về kết quả bóc tách ngay lập tức
     """
     try:
         t0 = time.time()
         content = await file.read()
         chosen_filename = filename or image_number
-        save_path, saved_filename = _save_and_validate_image_bytes(
+        save_path, saved_filename, file_hash = _save_and_validate_image_bytes(
             content,
             original_filename=file.filename,
             custom_filename=chosen_filename
         )
+        duplicate_bill = db.find_duplicate_bill(file_hash)
+        is_duplicate = duplicate_bill is not None
+
         actor = f"CRM Member {mem_id}" if mem_id else "CRM Direct API"
         note = f"Bóc tách qua /api/v1/extract-bill (image_number: {image_number or 'N/A'})"
+        if is_duplicate:
+            note += f" [TRÙNG LẶP Bill #{duplicate_bill['BillId']}]"
 
         try:
             ocr_data = ocr_engine.process_bill_image(save_path)
@@ -728,6 +780,7 @@ async def extract_bill_alias(
             "filename": saved_filename,
             "image_path": f"uploads/{saved_filename}",
             "status": "PENDING",
+            "file_hash": file_hash,
             "raw_brand": ocr_data["raw_brand"],
             "raw_outlet": ocr_data["raw_outlet"],
             "outlet_number": ocr_data["outlet_number"],
@@ -738,7 +791,7 @@ async def extract_bill_alias(
             "bill_total": ocr_data["bill_total"],
             "is_valid_bill": ocr_data["is_valid_bill"],
             "latency": ocr_data["latency"],
-            "raw_output": ocr_data["raw_output"],
+            "raw_output": ocr_data["raw_output"] if not is_duplicate else f"[TRÙNG LẶP Bill #{duplicate_bill['BillId']}] {ocr_data['raw_output']}",
             "actor": actor,
             "note": note,
         }
@@ -750,6 +803,9 @@ async def extract_bill_alias(
             "bill_id": bill_id,
             "filename": saved_filename,
             "image_url": f"/api/images/{saved_filename}",
+            "is_duplicate": is_duplicate,
+            "duplicate_info": duplicate_bill,
+            "message": "Cảnh báo: Bill này đã từng được tải lên trước đó (Upload lại)." if is_duplicate else "Thành công",
             "latency_seconds": total_latency,
             "data": {
                 "brand_name": ocr_data.get("raw_brand", ""),
@@ -1013,10 +1069,35 @@ main { flex: 1; display: flex; overflow: hidden; position: relative; }
   display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 15px; transition: background 0.15s;
 }
 .tool-btn:hover { background: rgba(255,255,255,0.15); }
+.tool-btn.active { background: #38bdf8 !important; color: #000 !important; font-weight: bold; }
+
+/* Loupe Lens for Region Zoom */
+.loupe-lens {
+  position: absolute; width: 190px; height: 190px; border: 3px solid #38bdf8;
+  border-radius: 50%; box-shadow: 0 0 25px rgba(0,0,0,0.85), inset 0 0 10px rgba(56, 189, 248, 0.4);
+  pointer-events: none; display: none; z-index: 100; background-repeat: no-repeat;
+  background-color: #000;
+}
 
 .inspector-right {
   flex: 1; max-width: 600px; min-width: 460px; background: var(--bg-surface);
-  display: flex; flex-direction: column; overflow-y: auto;
+  display: flex; flex-direction: column; overflow-y: auto; transition: background 0.3s, border-color 0.3s;
+}
+.inspector-right.bill-locked {
+  border-left: 3px solid var(--success);
+  background: linear-gradient(180deg, rgba(16, 185, 129, 0.08) 0%, var(--bg-surface) 220px);
+}
+.locked-banner {
+  background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.4); border-radius: 8px;
+  padding: 10px 14px; font-size: 13px; color: #6ee7b7; display: none; align-items: center; gap: 8px; font-weight: 600;
+}
+.locked-banner.active { display: flex; }
+.input-box:disabled {
+  background: rgba(255, 255, 255, 0.03); color: #94a3b8; border-color: rgba(255, 255, 255, 0.08); cursor: not-allowed;
+}
+.batch-pagination {
+  padding: 10px 24px; border-top: 1px solid var(--border); display: flex; justify-content: space-between;
+  align-items: center; font-size: 12px; color: var(--text-muted); background: var(--bg-surface);
 }
 
 .panel-head {
@@ -1216,8 +1297,10 @@ tr:hover td { background: rgba(255,255,255,0.02); cursor: pointer; }
     <div class="inspector-left">
       <div class="img-canvas-wrap" id="canvas-wrap">
         <img class="bill-img" id="bill-img" src="" alt="Hóa đơn">
+        <div class="loupe-lens" id="loupe-lens"></div>
       </div>
       <div class="img-toolbar">
+        <button class="tool-btn" id="btn-toggle-loupe" title="Soi kính lúp phóng to vùng trỏ chuột (Phím Z)">🔬</button>
         <button class="tool-btn" id="btn-zoom-in" title="Phóng to (+)">🔍+</button>
         <button class="tool-btn" id="btn-zoom-out" title="Thu nhỏ (-)">🔍-</button>
         <button class="tool-btn" id="btn-rotate-left" title="Xoay trái 90°">↺</button>
@@ -1236,6 +1319,10 @@ tr:hover td { background: rgba(255,255,255,0.02); cursor: pointer; }
       </div>
 
       <div class="form-body">
+        <div class="locked-banner" id="locked-banner">
+          🔒 <span>HÓA ĐƠN ĐÃ DUYỆT (CHỐT DỮ LIỆU) — ĐÃ KHÓA KHÔNG CHO CHỈNH SỬA</span>
+        </div>
+
         <div class="diff-alert" id="diff-alert">
           ⚠️ <span>Admin đã sửa số tiền khác kết quả AI đọc ban đầu!</span>
         </div>
@@ -1292,26 +1379,46 @@ tr:hover td { background: rgba(255,255,255,0.02); cursor: pointer; }
           <button class="btn btn-sec" id="btn-next" title="Phím mũi tên Phải">Tiếp ▶</button>
         </div>
 
-        <div style="display: flex; gap: 8px;">
+        <div id="inspector-action-buttons" style="display: flex; gap: 8px;">
           <button class="btn btn-save" id="btn-save" title="Phím Ctrl+S">💾 Lưu sửa đổi</button>
           <button class="btn btn-reject" id="btn-reject" title="Phím R">❌ Từ chối [R]</button>
           <button class="btn btn-approve" id="btn-approve" title="Phím A">✅ Phê duyệt [A]</button>
+        </div>
+        <div id="inspector-locked-msg" style="display: none; color: var(--success); font-weight: 700; font-size: 13px; align-items: center; gap: 6px;">
+          🔒 ĐÃ KHÓA (APPROVED)
         </div>
       </div>
     </div>
   </section>
 
-  <!-- TAB 2: BATCH TABLE (US 1) -->
+  <!-- TAB 2: BATCH TABLE (US 1 & US 6) -->
   <section class="tab-content" id="content-batch">
     <div id="view-batch">
-      <div class="batch-toolbar">
+      <div class="batch-toolbar" style="flex-wrap: wrap; gap: 10px;">
         <div class="filter-tabs">
           <button class="filter-btn active" data-filter="ALL">Tất cả (<span id="cnt-all">0</span>)</button>
           <button class="filter-btn" data-filter="PENDING">Chờ duyệt (<span id="cnt-pending">0</span>)</button>
           <button class="filter-btn" data-filter="APPROVED">Đã duyệt (<span id="cnt-approved">0</span>)</button>
           <button class="filter-btn" data-filter="REJECTED">Đã từ chối (<span id="cnt-rejected">0</span>)</button>
         </div>
-        <input type="text" class="input-box" id="batch-search" placeholder="🔍 Tìm theo tên file, quán, mã bill..." style="max-width: 280px; padding: 6px 12px; font-size: 12px;">
+
+        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+          <select class="input-box" id="filter-edit-status" style="width: auto; padding: 6px 10px; font-size: 12px;">
+            <option value="">-- Tất cả trạng thái sửa --</option>
+            <option value="edited">Đã sửa tay (Manual Edited)</option>
+            <option value="unedited">Chưa sửa (Giữ nguyên AI)</option>
+          </select>
+
+          <select class="input-box" id="filter-brand" style="width: auto; max-width: 170px; padding: 6px 10px; font-size: 12px;">
+            <option value="">-- Tất cả Brand --</option>
+          </select>
+
+          <select class="input-box" id="filter-outlet" style="width: auto; max-width: 180px; padding: 6px 10px; font-size: 12px;">
+            <option value="">-- Tất cả Cửa hàng --</option>
+          </select>
+
+          <input type="text" class="input-box" id="batch-search" placeholder="🔍 Tìm số HĐ, quán, brand, file..." style="max-width: 220px; padding: 6px 12px; font-size: 12px;">
+        </div>
       </div>
 
       <div class="table-wrap">
@@ -1333,6 +1440,20 @@ tr:hover td { background: rgba(255,255,255,0.02); cursor: pointer; }
             <tr><td colspan="9" style="text-align: center; color: var(--text-dim); padding: 40px;">Đang tải danh sách...</td></tr>
           </tbody>
         </table>
+      </div>
+
+      <div class="batch-pagination">
+        <div>Hiển thị <span id="page-start">0</span> - <span id="page-end">0</span> trên tổng số <b id="page-total" style="color:var(--text-main);">0</b> hóa đơn</div>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <button class="btn btn-sec" id="btn-page-prev" style="padding: 4px 10px; font-size: 12px;">◀ Trang trước</button>
+          <span>Trang <b id="page-current" style="color:var(--accent);">1</b> / <span id="page-last">1</span></span>
+          <button class="btn btn-sec" id="btn-page-next" style="padding: 4px 10px; font-size: 12px;">Trang sau ▶</button>
+          <select id="sel-page-limit" class="input-box" style="width: auto; padding: 4px 8px; font-size: 12px; margin-left: 8px;">
+            <option value="25">25 / trang</option>
+            <option value="50" selected>50 / trang</option>
+            <option value="100">100 / trang</option>
+          </select>
+        </div>
       </div>
     </div>
   </section>
@@ -1371,23 +1492,62 @@ tr:hover td { background: rgba(255,255,255,0.02); cursor: pointer; }
   </section>
 </main>
 
-<!-- Reject Modal -->
+<!-- Reject Modal (Requirement 2) -->
 <div class="modal-overlay" id="modal-reject">
   <div class="modal-card">
-    <h3>Từ chối hóa đơn</h3>
-    <div class="form-group">
-      <label class="form-label">Chọn lý do từ chối:</label>
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+      <h3>❌ Từ chối hóa đơn</h3>
+      <button id="btn-close-reject-x" style="background:none; border:none; color:var(--text-muted); font-size:18px; cursor:pointer;">✕</button>
+    </div>
+    <div style="font-size: 12px; color: var(--text-dim);">
+      Chọn lý do mẫu hoặc tự nhập nội dung từ chối gửi về CRM / Khách hàng:
+    </div>
+
+    <div class="form-group" style="margin-top: 8px;">
+      <label class="form-label">Mẫu lý do cấu hình sẵn:</label>
       <select class="input-box" id="sel-reject-reason">
+        <option value="">-- Chọn lý do mẫu cấu hình sẵn --</option>
         <option value="Hóa đơn mờ không đọc được">Hóa đơn mờ không đọc được</option>
         <option value="Ảnh chụp không phải hóa đơn mua hàng">Ảnh chụp không phải hóa đơn mua hàng</option>
         <option value="Hóa đơn không thuộc TTTM Gigamall">Hóa đơn không thuộc TTTM Gigamall</option>
-        <option value="Hóa đơn quá hạn tích điểm">Hóa đơn quá hạn tích điểm</option>
-        <option value="Hóa đơn trùng lặp đã tích điểm trước đó">Hóa đơn trùng lặp đã tích điểm trước đó</option>
+        <option value="Hóa đơn quá hạn tích điểm (quá 48h)">Hóa đơn quá hạn tích điểm (quá 48h)</option>
+        <option value="Hóa đơn trùng lặp đã được tích điểm">Hóa đơn trùng lặp đã được tích điểm</option>
+        <option value="Số tiền thanh toán không đủ điều kiện">Số tiền thanh toán không đủ điều kiện</option>
       </select>
     </div>
+
+    <div class="form-group">
+      <label class="form-label">
+        <span>Nội dung từ chối gửi khách (Bắt buộc):</span>
+        <span style="color: var(--danger); font-size: 11px;">* Có thể sửa/đánh vào trực tiếp</span>
+      </label>
+      <textarea class="input-box" id="txt-reject-reason" rows="3" placeholder="Nhập lý do chi tiết từ chối..." style="resize: vertical; min-height: 70px;"></textarea>
+    </div>
+
     <div style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px;">
       <button class="btn btn-sec" id="btn-cancel-reject">Hủy</button>
       <button class="btn btn-reject" id="btn-confirm-reject">Xác nhận Từ chối</button>
+    </div>
+  </div>
+</div>
+
+<!-- Duplicate Warning Modal (Requirement 5) -->
+<div class="modal-overlay" id="modal-dup-warning">
+  <div class="modal-card wide">
+    <div style="display: flex; align-items: center; gap: 10px; color: #f59e0b;">
+      <span style="font-size: 26px;">⚠️</span>
+      <h3 style="margin: 0; color: #fde68a;">Cảnh báo: Hóa đơn Trùng lặp (Duplicate)!</h3>
+    </div>
+    <div id="dup-warning-body" style="font-size: 13px; line-height: 1.6; color: var(--text-main); margin-top: 10px; background: rgba(245, 158, 11, 0.08); padding: 12px; border-radius: 8px; border: 1px solid rgba(245, 158, 11, 0.2);">
+      Đang tải thông tin trùng lặp...
+    </div>
+    <div style="font-size: 12px; color: var(--text-dim); margin-top: 4px;">
+      Hệ thống phát hiện ảnh này giống 100% với một hóa đơn đã tải lên trước đó. Bạn muốn xử lý như thế nào?
+    </div>
+    <div style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px;">
+      <button class="btn btn-reject" id="btn-dup-reject-new">❌ Từ chối Bill mới</button>
+      <button class="btn btn-sec" id="btn-dup-view-old">🔍 Xem Bill cũ</button>
+      <button class="btn btn-save" id="btn-dup-keep-new">Tiếp tục xử lý Bill mới ▶</button>
     </div>
   </div>
 </div>
@@ -1531,14 +1691,37 @@ let masterOutlets = [];
 let imgScale = 1;
 let imgRotate = 0;
 let currentFilter = "ALL";
+let currentPage = 1;
+let currentLimit = 50;
+let totalBillsCount = 0;
+let currentEditStatus = "";
+let currentBrand = "";
+let currentOutlet = "";
+let currentSearch = "";
+let searchDebounceTimer = null;
+let isLoupeActive = false;
+let loupeZoom = 3.0;
+let lastDupData = null;
 
 // Elements
 const billImg = document.getElementById("bill-img");
 const diffAlert = document.getElementById("diff-alert");
+const canvasWrap = document.getElementById("canvas-wrap");
+const loupeLens = document.getElementById("loupe-lens");
+const btnToggleLoupe = document.getElementById("btn-toggle-loupe");
+const filterEditStatus = document.getElementById("filter-edit-status");
+const filterBrand = document.getElementById("filter-brand");
+const filterOutlet = document.getElementById("filter-outlet");
+const batchSearch = document.getElementById("batch-search");
+const modalReject = document.getElementById("modal-reject");
+const selRejectReason = document.getElementById("sel-reject-reason");
+const txtRejectReason = document.getElementById("txt-reject-reason");
+const modalDupWarning = document.getElementById("modal-dup-warning");
 
 // Load Initial Data
 async function init() {
   setCurrentUser(getCurrentUser());
+  setupFiltersAndListeners();
   await loadOutlets();
   await loadStats();
   await loadBills();
@@ -1553,6 +1736,16 @@ async function loadOutlets() {
     masterOutlets = await res.json();
     const dl = document.getElementById("outlets-datalist");
     dl.innerHTML = masterOutlets.map(o => `<option value="${o.outlet_name}">${o.outlet_number} - ${o.brand_name || ''}</option>`).join("");
+
+    // Populate Brand Filter
+    const brands = Array.from(new Set(masterOutlets.map(o => (o.brand_name || '').trim()).filter(Boolean))).sort();
+    filterBrand.innerHTML = `<option value="">-- Tất cả Brand (${brands.length}) --</option>` +
+      brands.map(b => `<option value="${b}">${b}</option>`).join("");
+
+    // Populate Outlet Filter
+    const outlets = Array.from(new Set(masterOutlets.map(o => (o.outlet_name || '').trim()).filter(Boolean))).sort();
+    filterOutlet.innerHTML = `<option value="">-- Tất cả Cửa hàng (${outlets.length}) --</option>` +
+      outlets.map(o => `<option value="${o}">${o}</option>`).join("");
   } catch(e) { console.error(e); }
 }
 
@@ -1575,11 +1768,103 @@ async function loadStats() {
 
 async function loadBills() {
   try {
-    const res = await fetch(`/api/bills?status=${currentFilter}&limit=150`);
+    let url = `/api/bills?status=${currentFilter}&page=${currentPage}&limit=${currentLimit}`;
+    if (currentEditStatus) url += `&edit_status=${encodeURIComponent(currentEditStatus)}`;
+    if (currentBrand) url += `&brand=${encodeURIComponent(currentBrand)}`;
+    if (currentOutlet) url += `&outlet=${encodeURIComponent(currentOutlet)}`;
+    if (currentSearch) url += `&search=${encodeURIComponent(currentSearch)}`;
+
+    const res = await fetch(url);
     const data = await res.json();
     allBills = data.items || [];
+    totalBillsCount = data.total || 0;
     renderBatchTable();
+    updatePaginationUI();
   } catch(e) { console.error(e); }
+}
+
+function updatePaginationUI() {
+  const total = totalBillsCount;
+  const lastPage = Math.max(1, Math.ceil(total / currentLimit));
+  if (currentPage > lastPage) currentPage = lastPage;
+
+  const start = total === 0 ? 0 : (currentPage - 1) * currentLimit + 1;
+  const end = Math.min(currentPage * currentLimit, total);
+
+  document.getElementById("page-start").textContent = start;
+  document.getElementById("page-end").textContent = end;
+  document.getElementById("page-total").textContent = total;
+  document.getElementById("page-current").textContent = currentPage;
+  document.getElementById("page-last").textContent = lastPage;
+
+  document.getElementById("btn-page-prev").disabled = (currentPage <= 1);
+  document.getElementById("btn-page-next").disabled = (currentPage >= lastPage);
+}
+
+function setupFiltersAndListeners() {
+  // Filter tabs
+  document.querySelectorAll(".filter-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      currentFilter = btn.dataset.filter;
+      currentPage = 1;
+      loadBills();
+    });
+  });
+
+  // Edit status filter
+  filterEditStatus.addEventListener("change", e => {
+    currentEditStatus = e.target.value;
+    currentPage = 1;
+    loadBills();
+  });
+
+  // Brand filter
+  filterBrand.addEventListener("change", e => {
+    currentBrand = e.target.value;
+    currentPage = 1;
+    loadBills();
+  });
+
+  // Outlet filter
+  filterOutlet.addEventListener("change", e => {
+    currentOutlet = e.target.value;
+    currentPage = 1;
+    loadBills();
+  });
+
+  // Search box with debounce
+  batchSearch.addEventListener("input", e => {
+    clearTimeout(searchDebounceTimer);
+    searchDebounceTimer = setTimeout(() => {
+      currentSearch = e.target.value.trim();
+      currentPage = 1;
+      loadBills();
+    }, 350);
+  });
+
+  // Pagination buttons
+  document.getElementById("btn-page-prev").addEventListener("click", () => {
+    if (currentPage > 1) {
+      currentPage--;
+      loadBills();
+    }
+  });
+
+  document.getElementById("btn-page-next").addEventListener("click", () => {
+    const lastPage = Math.max(1, Math.ceil(totalBillsCount / currentLimit));
+    if (currentPage < lastPage) {
+      currentPage++;
+      loadBills();
+    }
+  });
+
+  document.getElementById("sel-page-limit").addEventListener("change", e => {
+    currentLimit = parseInt(e.target.value, 10) || 50;
+    currentPage = 1;
+    loadBills();
+  });
 }
 
 function showBill(idx) {
@@ -1587,9 +1872,10 @@ function showBill(idx) {
   currentIdx = idx;
   const b = allBills[idx];
 
-  // Reset image transform
+  // Reset image transform & loupe
   imgScale = 1; imgRotate = 0;
   updateImgTransform();
+  if (loupeLens) loupeLens.style.display = "none";
 
   billImg.src = `/api/images/${b.Filename}`;
   document.getElementById("panel-filename").textContent = b.Filename;
@@ -1607,11 +1893,41 @@ function showBill(idx) {
   document.getElementById("ocr-datetime").textContent = b.OcrDateTime ? b.OcrDateTime.replace("T", " ") : "–";
 
   // Editable Form inputs
-  document.getElementById("inp-outlet-name").value = b.FinalOutletName || b.OcrOutletName || "";
-  document.getElementById("inp-total").value = (b.FinalTotal !== null ? b.FinalTotal : b.OcrTotal || 0).toLocaleString("vi-VN");
-  document.getElementById("inp-billno").value = b.FinalBillNumber || b.OcrBillNumber || "";
-  document.getElementById("inp-datetime").value = b.FinalDateTime ? b.FinalDateTime.replace("T", " ") : (b.OcrDateTime ? b.OcrDateTime.replace("T", " ") : "");
-  document.getElementById("inp-note").value = "";
+  const inpOutlet = document.getElementById("inp-outlet-name");
+  const inpTotal = document.getElementById("inp-total");
+  const inpBillNo = document.getElementById("inp-billno");
+  const inpDateTime = document.getElementById("inp-datetime");
+  const inpNote = document.getElementById("inp-note");
+
+  inpOutlet.value = b.FinalOutletName || b.OcrOutletName || "";
+  inpTotal.value = (b.FinalTotal !== null ? b.FinalTotal : b.OcrTotal || 0).toLocaleString("vi-VN");
+  inpBillNo.value = b.FinalBillNumber || b.OcrBillNumber || "";
+  inpDateTime.value = b.FinalDateTime ? b.FinalDateTime.replace("T", " ") : (b.OcrDateTime ? b.OcrDateTime.replace("T", " ") : "");
+  inpNote.value = "";
+
+  // Requirement 3: Lock if APPROVED & Change styling
+  const isApproved = (b.Status === "APPROVED");
+  const panelRight = document.querySelector(".inspector-right");
+  const lockedBanner = document.getElementById("locked-banner");
+  const actionBtns = document.getElementById("inspector-action-buttons");
+  const lockedMsg = document.getElementById("inspector-locked-msg");
+
+  [inpOutlet, inpTotal, inpBillNo, inpDateTime, inpNote].forEach(inp => {
+    inp.disabled = isApproved;
+  });
+
+  if (isApproved) {
+    panelRight.classList.add("bill-locked");
+    lockedBanner.classList.add("active");
+    lockedBanner.innerHTML = `🔒 <span>HÓA ĐƠN ĐÃ DUYỆT BỞI <b>${b.ReviewedBy || 'Admin'}</b> — ĐÃ KHÓA DỮ LIỆU KHÔNG CHO CHỈNH SỬA</span>`;
+    actionBtns.style.display = "none";
+    lockedMsg.style.display = "flex";
+  } else {
+    panelRight.classList.remove("bill-locked");
+    lockedBanner.classList.remove("active");
+    actionBtns.style.display = "flex";
+    lockedMsg.style.display = "none";
+  }
 
   checkDiff(b);
   loadBillAuditLogs(b.BillId);
@@ -1653,26 +1969,47 @@ document.getElementById("btn-approve").addEventListener("click", async () => {
   await submitReview("APPROVED");
 });
 
+// Requirement 2: Custom Reject Reason
 document.getElementById("btn-reject").addEventListener("click", () => {
-  document.getElementById("modal-reject").style.display = "flex";
+  selRejectReason.value = "";
+  txtRejectReason.value = "";
+  modalReject.style.display = "flex";
+  txtRejectReason.focus();
+});
+
+document.getElementById("btn-close-reject-x").addEventListener("click", () => {
+  modalReject.style.display = "none";
 });
 
 document.getElementById("btn-cancel-reject").addEventListener("click", () => {
-  document.getElementById("modal-reject").style.display = "none";
+  modalReject.style.display = "none";
+});
+
+selRejectReason.addEventListener("change", e => {
+  if (e.target.value) {
+    txtRejectReason.value = e.target.value;
+  }
 });
 
 document.getElementById("btn-confirm-reject").addEventListener("click", async () => {
-  const reason = document.getElementById("sel-reject-reason").value;
-  document.getElementById("modal-reject").style.display = "none";
-  await submitReview("REJECTED", reason);
+  const customReason = txtRejectReason.value.trim();
+  if (!customReason) {
+    alert("Vui lòng nhập nội dung lý do từ chối vào ô văn bản!");
+    txtRejectReason.focus();
+    return;
+  }
+  modalReject.style.display = "none";
+  await submitReview("REJECTED", customReason);
 });
 
 async function submitReview(status, rejectReason = null) {
   const b = allBills[currentIdx];
   if (!b) return;
 
-  // Auto-save any form edits first
-  await saveEdits(false);
+  if (status !== "REJECTED") {
+    // Auto-save any form edits first
+    await saveEdits(false);
+  }
 
   const currentUser = getCurrentUser();
   const res = await fetch(`/api/bills/${b.BillId}/review`, {
@@ -1700,6 +2037,11 @@ document.getElementById("btn-save").addEventListener("click", () => saveEdits(tr
 async function saveEdits(showPrompt = true) {
   const b = allBills[currentIdx];
   if (!b) return;
+
+  if (b.Status === "APPROVED") {
+    alert("⚠️ Hóa đơn này đã được phê duyệt và khóa chốt dữ liệu. Không thể sửa!");
+    return;
+  }
 
   const total = parseInt(document.getElementById("inp-total").value.replace(/[^0-9]/g, "")) || 0;
   const outletName = document.getElementById("inp-outlet-name").value.trim();
@@ -1744,7 +2086,7 @@ async function saveEdits(showPrompt = true) {
   }
 }
 
-// Image tools
+// Image tools & Requirement 1: Loupe Magnifier (Zoom theo khu vực)
 function updateImgTransform() {
   billImg.style.transform = `scale(${imgScale}) rotate(${imgRotate}deg)`;
 }
@@ -1754,13 +2096,73 @@ document.getElementById("btn-rotate-right").addEventListener("click", () => { im
 document.getElementById("btn-rotate-left").addEventListener("click", () => { imgRotate = (imgRotate - 90 + 360) % 360; updateImgTransform(); });
 document.getElementById("btn-zoom-reset").addEventListener("click", () => { imgScale = 1; imgRotate = 0; updateImgTransform(); });
 
+btnToggleLoupe.addEventListener("click", toggleLoupe);
+
+function toggleLoupe() {
+  isLoupeActive = !isLoupeActive;
+  btnToggleLoupe.classList.toggle("active", isLoupeActive);
+  btnToggleLoupe.title = isLoupeActive ? "Đang bật kính lúp vùng (Nhấn Z để tắt)" : "Soi kính lúp phóng to vùng trỏ chuột (Phím Z)";
+  if (!isLoupeActive) {
+    loupeLens.style.display = "none";
+    canvasWrap.style.cursor = "grab";
+  } else {
+    canvasWrap.style.cursor = "crosshair";
+  }
+}
+
+canvasWrap.addEventListener("mousemove", e => {
+  if (!isLoupeActive || !billImg.naturalWidth) return;
+  const rect = billImg.getBoundingClientRect();
+  const mouseX = e.clientX;
+  const mouseY = e.clientY;
+
+  // Check if mouse inside bill image
+  if (mouseX < rect.left || mouseX > rect.right || mouseY < rect.top || mouseY > rect.bottom) {
+    loupeLens.style.display = "none";
+    return;
+  }
+
+  loupeLens.style.display = "block";
+  const lensRadius = 95; // 190 / 2
+  loupeLens.style.left = (mouseX - lensRadius) + "px";
+  loupeLens.style.top = (mouseY - lensRadius) + "px";
+
+  // Calculate relative coordinates
+  const relX = (mouseX - rect.left) / rect.width;
+  const relY = (mouseY - rect.top) / rect.height;
+
+  loupeLens.style.backgroundImage = `url("${billImg.src}")`;
+  loupeLens.style.backgroundSize = `${rect.width * loupeZoom}px ${rect.height * loupeZoom}px`;
+  const bgX = -(relX * rect.width * loupeZoom - lensRadius);
+  const bgY = -(relY * rect.height * loupeZoom - lensRadius);
+  loupeLens.style.backgroundPosition = `${bgX}px ${bgY}px`;
+});
+
+canvasWrap.addEventListener("mouseleave", () => {
+  if (isLoupeActive) loupeLens.style.display = "none";
+});
+
+// Wheel adjusts loupe magnification level when active
+canvasWrap.addEventListener("wheel", e => {
+  if (isLoupeActive) {
+    e.preventDefault();
+    if (e.deltaY < 0) {
+      loupeZoom = Math.min(loupeZoom + 0.5, 6);
+    } else {
+      loupeZoom = Math.max(loupeZoom - 0.5, 1.5);
+    }
+    canvasWrap.dispatchEvent(new MouseEvent("mousemove", { clientX: e.clientX, clientY: e.clientY }));
+  }
+}, { passive: false });
+
 // Keyboard shortcuts
 window.addEventListener("keydown", e => {
-  if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT") return;
+  if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT" || e.target.tagName === "TEXTAREA") return;
   if (e.key === "ArrowLeft") { document.getElementById("btn-prev").click(); }
   if (e.key === "ArrowRight") { document.getElementById("btn-next").click(); }
   if (e.key === "a" || e.key === "A") { document.getElementById("btn-approve").click(); }
   if (e.key === "r" || e.key === "R") { document.getElementById("btn-reject").click(); }
+  if (e.key === "z" || e.key === "Z") { toggleLoupe(); }
 });
 
 document.getElementById("btn-prev").addEventListener("click", () => { if (currentIdx > 0) showBill(currentIdx - 1); });
@@ -1783,7 +2185,7 @@ document.querySelectorAll(".nav-tab").forEach(tab => {
 function renderBatchTable() {
   const tbody = document.getElementById("batch-tbody");
   if (!allBills || allBills.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; color: var(--text-dim); padding: 40px;">Không có hóa đơn nào</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; color: var(--text-dim); padding: 40px;">Không tìm thấy hóa đơn nào phù hợp với bộ lọc</td></tr>`;
     return;
   }
   tbody.innerHTML = allBills.map((b, i) => `
@@ -1831,7 +2233,7 @@ async function renderGlobalAudit() {
   } catch(e) { console.error(e); }
 }
 
-// Upload Modal Logic
+// Upload Modal Logic & Requirement 5: Duplicate Warning Handling
 const modalUpload = document.getElementById("modal-upload");
 const uploadDropzone = document.getElementById("upload-dropzone");
 const uploadFileInput = document.getElementById("upload-file-input");
@@ -1938,6 +2340,13 @@ btnSubmitUpload.addEventListener("click", async () => {
       throw new Error(data.detail || data.message || "Tải lên hoặc chạy OCR thất bại");
     }
 
+    // Requirement 5: Duplicate alert handling on UI
+    if (data.is_duplicate && data.duplicate_info) {
+      modalUpload.style.display = "none";
+      showDuplicateModal(data);
+      return;
+    }
+
     uploadStatusBox.style.borderColor = "var(--success)";
     uploadStatusBox.style.color = "var(--success)";
     uploadStatusBox.innerHTML = `✅ <b>Thành công!</b> Đã bóc tách xong bill <b>#${data.bill_id}</b>. Đang chuyển sang màn hình soi duyệt...`;
@@ -1948,12 +2357,11 @@ btnSubmitUpload.addEventListener("click", async () => {
       await loadStats();
       await loadBills();
       
-      // Tìm index của bill vừa upload
       const newIdx = allBills.findIndex(b => b.BillId === data.bill_id);
       if (newIdx !== -1) {
         switchToInspector(newIdx);
       } else {
-        switchToInspector(allBills.length - 1);
+        switchToInspector(0);
       }
     }, 1000);
 
@@ -1965,6 +2373,81 @@ btnSubmitUpload.addEventListener("click", async () => {
     btnSubmitUpload.disabled = false;
     btnSubmitUpload.innerHTML = "⚡ Thử lại";
   }
+});
+
+// Duplicate Warning Modal Actions
+function showDuplicateModal(data) {
+  lastDupData = data;
+  const dup = data.duplicate_info;
+  const body = document.getElementById("dup-warning-body");
+  body.innerHTML = `
+    <div style="font-size:13px; font-weight:700; color:#fde68a; margin-bottom:6px;">
+      ⚠️ Hệ thống phát hiện ảnh hóa đơn này giống 100% với hóa đơn đã có trên CSDL:
+    </div>
+    <ul style="margin: 0; padding-left: 20px; font-size: 12px; line-height: 1.8;">
+      <li><b>Mã hóa đơn cũ:</b> <span style="color:var(--accent); font-weight:700;">#${dup.BillId}</span></li>
+      <li><b>Tên file cũ:</b> ${dup.Filename}</li>
+      <li><b>Trạng thái duyệt cũ:</b> <span class="status-tag ${dup.Status}" style="font-size:10px; padding:2px 6px;">${dup.Status}</span></li>
+      <li><b>Thời gian tải lên trước:</b> ${dup.CreatedAt}</li>
+      <li><b>Mã hóa đơn mới vừa tạo:</b> #${data.bill_id}</li>
+    </ul>
+  `;
+  modalDupWarning.style.display = "flex";
+}
+
+document.getElementById("btn-dup-view-old").addEventListener("click", async () => {
+  modalDupWarning.style.display = "none";
+  if (!lastDupData || !lastDupData.duplicate_info) return;
+  const oldId = lastDupData.duplicate_info.BillId;
+  await loadBills();
+  const idx = allBills.findIndex(b => b.BillId === oldId);
+  if (idx !== -1) {
+    switchToInspector(idx);
+  } else {
+    // If not found in current page, load it
+    try {
+      const res = await fetch(`/api/bills/${oldId}`);
+      const oldBill = await res.json();
+      allBills = [oldBill, ...allBills];
+      switchToInspector(0);
+    } catch(e) {
+      alert(`Đã có hóa đơn #${oldId} trên hệ thống.`);
+    }
+  }
+});
+
+document.getElementById("btn-dup-keep-new").addEventListener("click", async () => {
+  modalDupWarning.style.display = "none";
+  if (!lastDupData) return;
+  await loadBills();
+  const idx = allBills.findIndex(b => b.BillId === lastDupData.bill_id);
+  if (idx !== -1) {
+    switchToInspector(idx);
+  } else {
+    switchToInspector(0);
+  }
+});
+
+document.getElementById("btn-dup-reject-new").addEventListener("click", async () => {
+  if (!lastDupData) return;
+  const newId = lastDupData.bill_id;
+  const oldId = lastDupData.duplicate_info ? lastDupData.duplicate_info.BillId : "cũ";
+  modalDupWarning.style.display = "none";
+  
+  const currentUser = getCurrentUser();
+  await fetch(`/api/bills/${newId}/review`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Actor": currentUser },
+    body: JSON.stringify({
+      status: "REJECTED",
+      actor: currentUser,
+      reject_reason: `Từ chối do ảnh trùng lặp 100% với Bill #${oldId}`
+    })
+  });
+  alert(`✅ Đã từ chối hóa đơn #${newId} do trùng lặp với Bill #${oldId}.`);
+  await loadStats();
+  await loadBills();
+  if (allBills.length > 0) switchToInspector(0);
 });
 
 init();

@@ -10,6 +10,7 @@ import re
 import threading
 import time
 import unicodedata
+from datetime import datetime
 from pathlib import Path
 from PIL import Image, ImageOps
 
@@ -241,6 +242,27 @@ def prepare_image(img_path: Path) -> Path:
     return out_path
 
 
+def optimize_bill_number(raw_bill_number: str, bill_datetime: str = None) -> str:
+    """
+    Rule 4: Optimize số Hóa đơn:
+    - Lấy 6 số cuối của hóa đơn
+    - Nếu hóa đơn không đủ 6 số thì tự động thêm số 0 ở đầu cho đủ 6 số (zfill)
+    - Nếu không có số HĐ thì lấy ngày giờ làm số HĐ
+    """
+    raw_digits = re.sub(r"[^0-9]", "", str(raw_bill_number or ""))
+    if raw_digits:
+        if len(raw_digits) >= 6:
+            return raw_digits[-6:]
+        else:
+            return raw_digits.zfill(6)
+
+    # Nếu không có số HD, lấy chuỗi ngày giờ
+    dt_digits = re.sub(r"[^0-9]", "", str(bill_datetime or ""))
+    if dt_digits:
+        return dt_digits
+    return datetime.now().strftime("%Y%m%d%H%M%S")
+
+
 def process_bill_image(image_path: Path) -> dict:
     """
     Thực hiện xử lý bóc tách toàn diện một ảnh hóa đơn:
@@ -321,17 +343,20 @@ def process_bill_image(image_path: Path) -> dict:
 
     raw_brand = str(parsed.get("brand_name") or "").strip()
     raw_outlet = str(parsed.get("outlet_name") or "").strip()
-    bill_number = str(parsed.get("bill_number") or "").strip()
+    raw_bill_number = str(parsed.get("bill_number") or "").strip()
     bill_datetime = str(parsed.get("bill_datetime") or "").strip()
     bill_total = to_int_amount(parsed.get("bill_total"))
     is_valid_bill = bool(parsed.get("is_valid_bill", True))
+
+    optimized_bill_number = optimize_bill_number(raw_bill_number, bill_datetime)
 
     out_num, out_name, match_score = resolve_outlet(raw_outlet, raw_brand)
 
     return {
         "raw_brand": raw_brand,
         "raw_outlet": raw_outlet,
-        "bill_number": bill_number,
+        "bill_number": optimized_bill_number,
+        "raw_bill_number": raw_bill_number,
         "bill_datetime": bill_datetime,
         "bill_total": bill_total,
         "is_valid_bill": is_valid_bill,

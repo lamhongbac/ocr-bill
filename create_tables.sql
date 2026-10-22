@@ -40,12 +40,14 @@ BEGIN
         IsManualEdited BIT NOT NULL DEFAULT 0,
         ReviewedBy NVARCHAR(100) NULL,
         ReviewedAt DATETIME NULL,
-        RejectReason NVARCHAR(500) NULL,
+        -- Kiểm soát trùng lặp ảnh (Anti-duplicate)
+        FileHash VARCHAR(64) NULL,
         CreatedAt DATETIME DEFAULT GETDATE(),
         UpdatedAt DATETIME DEFAULT GETDATE()
     );
 
     CREATE NONCLUSTERED INDEX IX_OcrBills_Status ON OcrBills(Status);
+    CREATE NONCLUSTERED INDEX IX_OcrBills_FileHash ON OcrBills(FileHash);
     PRINT 'Đã tạo bảng OcrBills thành công!';
 END
 ELSE

@@ -10,6 +10,7 @@ import json
 import pymssql
 from datetime import datetime
 from pathlib import Path
+from typing import Optional, List, Dict, Any, Tuple
 
 BASE_DIR = Path(__file__).resolve().parent
 FREETDS_CONF_PATH = BASE_DIR / "freetds.conf"
@@ -221,19 +222,57 @@ def get_bill_stats():
         conn.close()
 
 
-def get_bills(status=None, search=None, page=1, limit=50):
-    """Lấy danh sách hóa đơn kèm phân trang và bộ lọc."""
+def get_bills(
+    status=None,
+    search=None,
+    edit_status=None,
+    brand=None,
+    outlet=None,
+    page=1,
+    limit=50
+):
+    """Lấy danh sách hóa đơn kèm phân trang, bộ lọc đa chiều (trạng thái duyệt, sửa tay, brand, outlet) và tìm kiếm."""
     conn = get_connection()
     cursor = conn.cursor(as_dict=True)
     try:
         clauses = []
         params = []
+        
+        # 1. Lọc theo trạng thái duyệt (Status: PENDING, APPROVED, REJECTED)
         if status and status != "ALL":
             clauses.append("Status = %s")
             params.append(status)
-        if search:
-            clauses.append("(Filename LIKE %s OR FinalOutletName LIKE %s OR FinalBillNumber LIKE %s)")
-            params.extend([f"%{search}%", f"%{search}%", f"%{search}%"])
+
+        # 2. Lọc theo trạng thái sửa tay (IsManualEdited: 1 / 0)
+        if edit_status is not None and str(edit_status) != "ALL":
+            if str(edit_status).lower() in ("1", "true", "edited"):
+                clauses.append("IsManualEdited = 1")
+            elif str(edit_status).lower() in ("0", "false", "unedited"):
+                clauses.append("IsManualEdited = 0")
+
+        # 3. Lọc theo Brand
+        if brand and brand != "ALL":
+            clauses.append("(OcrBrand LIKE %s)")
+            params.append(f"%{brand}%")
+
+        # 4. Lọc theo Cửa hàng / Gian hàng (Outlet)
+        if outlet and outlet != "ALL":
+            clauses.append("(FinalOutletName LIKE %s OR OcrOutletName LIKE %s OR FinalOutletNumber = %s)")
+            params.extend([f"%{outlet}%", f"%{outlet}%", outlet])
+
+        # 5. Tìm kiếm toàn văn theo các trường text (Số hóa đơn, Cửa hàng, Brand, Tên file)
+        if search and search.strip():
+            kw = f"%{search.strip()}%"
+            clauses.append("""(
+                Filename LIKE %s OR 
+                FinalBillNumber LIKE %s OR 
+                OcrBillNumber LIKE %s OR 
+                FinalOutletName LIKE %s OR 
+                OcrOutletName LIKE %s OR 
+                OcrBrand LIKE %s OR 
+                FinalOutletNumber LIKE %s
+            )""")
+            params.extend([kw, kw, kw, kw, kw, kw, kw])
 
         where_sql = ("WHERE " + " AND ".join(clauses)) if clauses else ""
 
@@ -247,12 +286,12 @@ def get_bills(status=None, search=None, page=1, limit=50):
         query_sql = f"""
         SELECT 
             BillId, Filename, ImagePath, Status,
-            OcrOutletName, OcrTotal, OcrIsValid, OcrMatchScore, OcrLatency,
+            OcrBrand, OcrOutletName, OcrBillNumber, OcrTotal, OcrIsValid, OcrMatchScore, OcrLatency,
             FinalOutletNumber, FinalOutletName, FinalBillNumber, FinalDateTime, FinalTotal,
-            IsManualEdited, ReviewedBy, ReviewedAt, RejectReason
+            IsManualEdited, ReviewedBy, ReviewedAt, RejectReason, FileHash
         FROM OcrBills
         {where_sql}
-        ORDER BY BillId ASC
+        ORDER BY BillId DESC
         OFFSET {offset} ROWS FETCH NEXT {limit} ROWS ONLY
         """
         cursor.execute(query_sql, tuple(params))
@@ -401,6 +440,24 @@ def get_all_audit_logs(limit=200):
         conn.close()
 
 
+def find_duplicate_bill(file_hash: str) -> Optional[dict]:
+    """Tìm hóa đơn đã tồn tại trong CSDL có cùng hash nội dung ảnh (trùng lặp)."""
+    if not file_hash:
+        return None
+    conn = get_connection()
+    cursor = conn.cursor(as_dict=True)
+    try:
+        cursor.execute("""
+        SELECT TOP 1 BillId, Filename, ImagePath, Status, FinalBillNumber, FinalTotal, CreatedAt
+        FROM OcrBills
+        WHERE FileHash = %s
+        ORDER BY BillId DESC
+        """, (file_hash,))
+        return cursor.fetchone()
+    finally:
+        conn.close()
+
+
 def insert_ocr_bill(data: dict) -> int:
     """Thêm một hóa đơn mới vào bảng OcrBills sau khi nhận ảnh hoặc chạy OCR."""
     conn = get_connection()
@@ -428,6 +485,7 @@ def insert_ocr_bill(data: dict) -> int:
         status = data.get("status") or "PENDING"
         filename = data["filename"]
         image_path = data.get("image_path") or f"uploads/{filename}"
+        file_hash = data.get("file_hash")
 
         cursor.execute("""
         INSERT INTO OcrBills (
@@ -435,13 +493,13 @@ def insert_ocr_bill(data: dict) -> int:
             OcrBrand, OcrOutletRaw, OcrOutletNumber, OcrOutletName, OcrMatchScore,
             OcrBillNumber, OcrDateTime, OcrTotal, OcrIsValid, OcrLatency, OcrRawOutput,
             FinalOutletNumber, FinalOutletName, FinalBillNumber, FinalDateTime, FinalTotal,
-            IsManualEdited, CreatedAt, UpdatedAt
+            IsManualEdited, FileHash, CreatedAt, UpdatedAt
         ) VALUES (
             %s, %s, %s,
             %s, %s, %s, %s, %s,
             %s, %s, %s, %s, %s, %s,
             %s, %s, %s, %s, %s,
-            0, %s, %s
+            0, %s, %s, %s
         );
         SELECT @@IDENTITY;
         """, (
@@ -449,7 +507,7 @@ def insert_ocr_bill(data: dict) -> int:
             brand, outlet_raw, out_num, out_name, score,
             bill_num, dt_val, total_val, is_valid, lat, raw_out,
             out_num, out_name, bill_num, dt_val, total_val,
-            now, now
+            file_hash, now, now
         ))
         row = cursor.fetchone()
         bill_id = int(row[0]) if row and row[0] is not None else None
