@@ -1854,6 +1854,30 @@ tr:hover td { background: rgba(255,255,255,0.02); cursor: pointer; }
 <!-- Toast Container (Modern floating alerts) -->
 <div class="toast-container" id="toast-container"></div>
 
+<!-- Popup Message Modal (Thông báo Lưu thành công hoặc Báo lỗi chi tiết) -->
+<div class="modal-overlay" id="modal-popup-msg" style="display: none; z-index: 10000;">
+  <div class="modal-card" style="max-width: 500px; border-radius: 12px; box-shadow: 0 20px 50px rgba(0,0,0,0.7); border: 1px solid var(--border);">
+    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <span id="popup-msg-icon" style="font-size: 28px; line-height: 1;">✅</span>
+        <div>
+          <h3 id="popup-msg-title" style="margin: 0; font-size: 16px;">Thông báo</h3>
+          <div id="popup-msg-subtitle" style="font-size: 11px; color: var(--text-dim); margin-top: 2px;">Hệ thống CRM OCR Gigamall</div>
+        </div>
+      </div>
+      <button id="btn-close-popup-msg-x" style="background:none; border:none; color:var(--text-muted); font-size:20px; cursor:pointer; line-height:1;">✕</button>
+    </div>
+
+    <div id="popup-msg-body" style="margin: 16px 0; font-size: 13px; line-height: 1.5; color: var(--text-main); background: rgba(0,0,0,0.25); padding: 14px 16px; border-radius: 8px; border: 1px solid var(--border);">
+      Nội dung thông báo
+    </div>
+
+    <div style="display: flex; justify-content: flex-end; gap: 10px;">
+      <button class="btn btn-save" id="btn-popup-msg-close" style="min-width: 100px;">Đã hiểu</button>
+    </div>
+  </div>
+</div>
+
 <!-- Reject Modal (Requirement 2) -->
 <div class="modal-overlay" id="modal-reject">
   <div class="modal-card">
@@ -2315,35 +2339,53 @@ function showBill(idx) {
   inpNote.value = "";
 
   // Requirement 3: Lock if APPROVED or REJECTED & Change styling
-  const isLocked = (b.Status === "APPROVED" || b.Status === "REJECTED");
-  const panelRight = document.querySelector(".inspector-right");
-  const lockedBanner = document.getElementById("locked-banner");
-  const actionBtns = document.getElementById("inspector-action-buttons");
-  const lockedMsg = document.getElementById("inspector-locked-msg");
-
-  [inpOutlet, inpTotal, inpBillNo, inpDateTime, inpNote].forEach(inp => {
-    inp.disabled = isLocked;
-  });
-
-  if (isLocked) {
-    panelRight.classList.add("bill-locked");
-    lockedBanner.classList.add("active");
-    const actionText = b.Status === "APPROVED" ? "ĐÃ DUYỆT" : "ĐÃ TỪ CHỐI";
-    lockedBanner.innerHTML = `🔒 <span>HÓA ĐƠN ${actionText} BỞI <b>${b.ReviewedBy || 'Admin'}</b> — ĐÃ KHÓA DỮ LIỆU KHÔNG CHO CHỈNH SỬA</span>`;
-    actionBtns.style.display = "none";
-    lockedMsg.style.display = "flex";
-  } else {
-    panelRight.classList.remove("bill-locked");
-    lockedBanner.classList.remove("active");
-    actionBtns.style.display = "flex";
-    lockedMsg.style.display = "none";
-  }
+  applyLockState(b);
 
   const saveBanner = document.getElementById("save-banner");
   if (saveBanner) saveBanner.classList.remove("active");
 
   checkDiff(b);
   loadBillAuditLogs(b.BillId);
+}
+
+function applyLockState(b) {
+  if (!b) return;
+  const isLocked = (b.Status === "APPROVED" || b.Status === "REJECTED");
+  const panelRight = document.querySelector(".inspector-right");
+  const lockedBanner = document.getElementById("locked-banner");
+  const actionBtns = document.getElementById("inspector-action-buttons");
+  const lockedMsg = document.getElementById("inspector-locked-msg");
+  const st = document.getElementById("bill-status");
+  if (st) {
+    st.textContent = b.Status;
+    st.className = `status-tag ${b.Status}`;
+  }
+
+  const inpOutlet = document.getElementById("inp-outlet-name");
+  const inpTotal = document.getElementById("inp-total");
+  const inpBillNo = document.getElementById("inp-billno");
+  const inpDateTime = document.getElementById("inp-datetime");
+  const inpNote = document.getElementById("inp-note");
+
+  [inpOutlet, inpTotal, inpBillNo, inpDateTime, inpNote].forEach(inp => {
+    if (inp) inp.disabled = isLocked;
+  });
+
+  if (isLocked) {
+    if (panelRight) panelRight.classList.add("bill-locked");
+    if (lockedBanner) {
+      lockedBanner.classList.add("active");
+      const actionText = b.Status === "APPROVED" ? "ĐÃ DUYỆT" : "ĐÃ TỪ CHỐI";
+      lockedBanner.innerHTML = `🔒 <span>HÓA ĐƠN ${actionText} BỞI <b>${b.ReviewedBy || 'Admin'}</b> — ĐÃ KHÓA DỮ LIỆU KHÔNG CHO CHỈNH SỬA</span>`;
+    }
+    if (actionBtns) actionBtns.style.display = "none";
+    if (lockedMsg) lockedMsg.style.display = "flex";
+  } else {
+    if (panelRight) panelRight.classList.remove("bill-locked");
+    if (lockedBanner) lockedBanner.classList.remove("active");
+    if (actionBtns) actionBtns.style.display = "flex";
+    if (lockedMsg) lockedMsg.style.display = "none";
+  }
 }
 
 function checkDiff(b) {
@@ -2397,10 +2439,100 @@ function showToast(type, title, message, durationMs = 4500) {
   }
 }
 
+let popupOnCloseCallback = null;
+
+function showPopupMessage({ type = "info", title = "Thông báo", subtitle = "Hệ thống CRM OCR Gigamall", bodyHtml = "", onClose = null }) {
+  const modal = document.getElementById("modal-popup-msg");
+  if (!modal) return;
+
+  const iconEl = document.getElementById("popup-msg-icon");
+  const titleEl = document.getElementById("popup-msg-title");
+  const subtitleEl = document.getElementById("popup-msg-subtitle");
+  const bodyEl = document.getElementById("popup-msg-body");
+  const cardEl = modal.querySelector(".modal-card");
+
+  const icons = {
+    success: "✅",
+    warning: "⚠️",
+    error: "❌",
+    info: "ℹ️"
+  };
+
+  const titleColors = {
+    success: "var(--success)",
+    warning: "#ffb86c",
+    error: "var(--danger)",
+    info: "var(--accent)"
+  };
+
+  const borderColors = {
+    success: "rgba(16, 185, 129, 0.45)",
+    warning: "rgba(255, 184, 108, 0.55)",
+    error: "rgba(239, 68, 68, 0.55)",
+    info: "rgba(56, 189, 248, 0.45)"
+  };
+
+  if (iconEl) iconEl.textContent = icons[type] || "ℹ️";
+  if (titleEl) {
+    titleEl.textContent = title;
+    titleEl.style.color = titleColors[type] || "var(--text-main)";
+  }
+  if (subtitleEl) subtitleEl.textContent = subtitle;
+  if (bodyEl) bodyEl.innerHTML = bodyHtml;
+
+  if (cardEl) {
+    cardEl.style.borderColor = borderColors[type] || "var(--border)";
+  }
+
+  popupOnCloseCallback = onClose;
+  modal.style.display = "flex";
+}
+
+function closePopupMessage() {
+  const modal = document.getElementById("modal-popup-msg");
+  if (modal) modal.style.display = "none";
+  if (typeof popupOnCloseCallback === "function") {
+    const cb = popupOnCloseCallback;
+    popupOnCloseCallback = null;
+    cb();
+  }
+}
+
+const btnPopupMsgClose = document.getElementById("btn-popup-msg-close");
+if (btnPopupMsgClose) {
+  btnPopupMsgClose.addEventListener("click", closePopupMessage);
+}
+const btnClosePopupMsgX = document.getElementById("btn-close-popup-msg-x");
+if (btnClosePopupMsgX) {
+  btnClosePopupMsgX.addEventListener("click", closePopupMessage);
+}
+const modalPopupMsg = document.getElementById("modal-popup-msg");
+if (modalPopupMsg) {
+  modalPopupMsg.addEventListener("click", (e) => {
+    if (e.target === modalPopupMsg) closePopupMessage();
+  });
+}
+
 async function loadBillAuditLogs(billId, highlightFirst = false) {
   try {
     const res = await fetch(`/api/bills/${billId}`);
     const data = await res.json();
+
+    // Tự động đồng bộ trạng thái mới nhất từ CSDL (tránh lệch PENDING khi đã APPROVED/REJECTED)
+    const b = allBills[currentIdx];
+    if (b && b.BillId === billId && data && data.Status) {
+      if (b.Status !== data.Status || b.ReviewedBy !== data.ReviewedBy) {
+        b.Status = data.Status;
+        b.ReviewedBy = data.ReviewedBy;
+        b.ReviewedAt = data.ReviewedAt;
+        if (data.FinalTotal !== undefined) b.FinalTotal = data.FinalTotal;
+        if (data.FinalOutletName !== undefined) b.FinalOutletName = data.FinalOutletName;
+        if (data.FinalBillNumber !== undefined) b.FinalBillNumber = data.FinalBillNumber;
+        if (data.FinalDateTime !== undefined) b.FinalDateTime = data.FinalDateTime;
+        applyLockState(b);
+      }
+    }
+
     const list = document.getElementById("inspector-audit-list");
     if (!data.audit_logs || data.audit_logs.length === 0) {
       list.innerHTML = `<div style="color: var(--text-dim); font-size: 11px;">Chưa có lịch sử thay đổi.</div>`;
@@ -2505,7 +2637,27 @@ async function saveEdits(showPrompt = true) {
   if (!b) return;
 
   if (b.Status === "APPROVED" || b.Status === "REJECTED") {
-    showToast("warning", "Không thể chỉnh sửa", `Hóa đơn này đã ở trạng thái ${b.Status} và bị khóa dữ liệu.`);
+    const actionText = b.Status === "APPROVED" ? "Phê duyệt" : "Từ chối";
+    showPopupMessage({
+      type: "warning",
+      title: "Không thể chỉnh sửa hóa đơn đã chốt",
+      subtitle: `Hóa đơn #${b.BillId} • Trạng thái: ${b.Status}`,
+      bodyHtml: `
+        <div style="margin-bottom: 12px; font-weight: 600; color: #ffb86c; font-size: 13.5px;">
+          ⚠️ Hóa đơn này đã ở trạng thái <b>${b.Status}</b> (đã được ${actionText} bởi <b>${b.ReviewedBy || 'Admin'}</b>).
+        </div>
+        <div style="line-height: 1.5; color: var(--text-main); margin-bottom: 12px;">
+          Theo quy chuẩn kiểm toán CRM và CSDL, dữ liệu hóa đơn sau khi đã được chốt (APPROVED hoặc REJECTED) <b>không được phép tự ý sửa đổi</b> để đảm bảo tính minh bạch tài chính.
+        </div>
+        <div style="background: rgba(0,0,0,0.3); border-radius: 6px; padding: 10px 12px; font-size: 11.5px; color: var(--text-dim); border: 1px dashed rgba(255,255,255,0.1);">
+          🔒 Các trường nhập liệu của hóa đơn này đã được hệ thống tự động khóa lại.
+        </div>
+      `,
+      onClose: () => {
+        applyLockState(b);
+      }
+    });
+    applyLockState(b);
     return;
   }
 
@@ -2570,12 +2722,53 @@ async function saveEdits(showPrompt = true) {
           }, 2000);
         }
 
+        const nowStr = new Date().toLocaleTimeString("vi-VN");
+        const formattedTotal = total.toLocaleString("vi-VN") + " VNĐ";
+
+        // POPUP MESSAGE THÔNG BÁO LƯU THÀNH CÔNG RÕ RÀNG
+        showPopupMessage({
+          type: "success",
+          title: "Lưu thay đổi thành công!",
+          subtitle: `Hóa đơn #${b.BillId} • Cập nhật lúc ${nowStr} bởi ${currentUser}`,
+          bodyHtml: `
+            <div style="margin-bottom: 12px; color: var(--success); font-weight: 600; font-size: 13.5px;">
+              ${numChanged > 0 ? `✅ Đã lưu thành công <b>${numChanged} trường</b> vào CSDL và ghi nhận vết kiểm toán.` : `ℹ️ Dữ liệu đã được kiểm tra khớp hoàn toàn với CSDL.`}
+            </div>
+            <table style="width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 12px; background: rgba(255,255,255,0.03); border-radius: 6px; overflow: hidden;">
+              <tr style="border-bottom: 1px solid rgba(255,255,255,0.06);">
+                <td style="padding: 7px 10px; color: var(--text-dim); width: 38%;">Cửa hàng / Gian hàng:</td>
+                <td style="padding: 7px 10px; font-weight: 600; color: var(--text-main);">${outletName || "–"}</td>
+              </tr>
+              <tr style="border-bottom: 1px solid rgba(255,255,255,0.06);">
+                <td style="padding: 7px 10px; color: var(--text-dim);">Số tiền hợp lệ:</td>
+                <td style="padding: 7px 10px; font-weight: 700; color: var(--accent); font-size: 13px;">${formattedTotal}</td>
+              </tr>
+              <tr style="border-bottom: 1px solid rgba(255,255,255,0.06);">
+                <td style="padding: 7px 10px; color: var(--text-dim);">Mã số hóa đơn:</td>
+                <td style="padding: 7px 10px; font-family: monospace; color: var(--text-main); font-weight: 600;">${billNo || "–"}</td>
+              </tr>
+              <tr style="border-bottom: 1px solid rgba(255,255,255,0.06);">
+                <td style="padding: 7px 10px; color: var(--text-dim);">Ngày giờ giao dịch:</td>
+                <td style="padding: 7px 10px; color: var(--text-main);">${dt || "–"}</td>
+              </tr>
+              ${note ? `
+              <tr>
+                <td style="padding: 7px 10px; color: var(--text-dim);">Ghi chú điều chỉnh:</td>
+                <td style="padding: 7px 10px; color: #ffb86c; font-style: italic;">${note}</td>
+              </tr>
+              ` : ''}
+            </table>
+            <div style="font-size: 11.5px; color: var(--text-dim); border-top: 1px dashed var(--border); padding-top: 8px;">
+              📝 Nhân viên thực hiện: <b>${currentUser}</b> • Lịch sử kiểm toán đã cập nhật.
+            </div>
+          `
+        });
+
         // Show inline banner in form
         const saveBanner = document.getElementById("save-banner");
         const saveBannerTitle = document.getElementById("save-banner-title");
         const saveBannerSub = document.getElementById("save-banner-sub");
         if (saveBanner && saveBannerTitle && saveBannerSub) {
-          const nowStr = new Date().toLocaleTimeString("vi-VN");
           if (numChanged > 0) {
             saveBannerTitle.textContent = `Đã lưu thành công ${numChanged} trường thay đổi!`;
             saveBannerSub.textContent = `Cập nhật lúc ${nowStr} bởi ${currentUser}. Đã ghi nhận vết kiểm toán.`;
@@ -2587,19 +2780,11 @@ async function saveEdits(showPrompt = true) {
         }
 
         // Show floating Toast
-        if (numChanged > 0) {
-          showToast(
-            "success",
-            `Lưu thành công Bill #${b.BillId}`,
-            `Đã cập nhật <b>${numChanged} trường</b> vào CSDL lúc ${new Date().toLocaleTimeString('vi-VN')} và ghi nhận kiểm toán bởi <b>${currentUser}</b>.`
-          );
-        } else {
-          showToast(
-            "info",
-            `Bill #${b.BillId} không đổi`,
-            `Các giá trị nhập liệu hiện tại trùng khớp hoàn toàn với dữ liệu CSDL.`
-          );
-        }
+        showToast(
+          "success",
+          `Lưu thành công Bill #${b.BillId}`,
+          `Đã cập nhật ${numChanged} trường vào CSDL lúc ${nowStr} bởi <b>${currentUser}</b>.`
+        );
 
         await loadBillAuditLogs(b.BillId, true);
         loadStats();
@@ -2609,13 +2794,60 @@ async function saveEdits(showPrompt = true) {
         btnSave.classList.remove("saving");
         btnSave.innerHTML = originalBtnHtml;
       }
-      showToast("error", "Lỗi lưu dữ liệu", result.detail || "Không thể lưu thay đổi vào máy chủ");
+
+      const errorMsg = result.detail || `Lỗi máy chủ (${res.status})`;
+
+      // Nếu lỗi do bill đã được duyệt hoặc từ chối, cập nhật trạng thái ngay
+      if (errorMsg.includes("APPROVED") || errorMsg.includes("REJECTED") || errorMsg.includes("đã ở trạng thái")) {
+        if (errorMsg.includes("APPROVED")) b.Status = "APPROVED";
+        else if (errorMsg.includes("REJECTED")) b.Status = "REJECTED";
+        applyLockState(b);
+      }
+
+      // POPUP MESSAGE THÔNG BÁO LỖI / TẠI SAO KHÔNG LƯU ĐƯỢC
+      showPopupMessage({
+        type: "error",
+        title: "Không thể lưu thay đổi vào CSDL",
+        subtitle: `Hóa đơn #${b.BillId} • Mã lỗi: ${res.status}`,
+        bodyHtml: `
+          <div style="margin-bottom: 10px; font-weight: 600; color: var(--danger); font-size: 13.5px;">
+            ❌ Hệ thống từ chối lưu thay đổi do vi phạm quy tắc dữ liệu:
+          </div>
+          <div style="background: rgba(255, 85, 85, 0.12); border-left: 3px solid var(--danger); padding: 10px 12px; border-radius: 4px; margin-bottom: 12px; color: #ffb8b8; font-size: 12.5px; line-height: 1.5;">
+            ${errorMsg}
+          </div>
+          <div style="font-size: 11.5px; color: var(--text-dim); line-height: 1.5;">
+            💡 <b>Giải thích:</b> Hóa đơn này đã được xác nhận (APPROVED hoặc REJECTED). Để bảo vệ dữ liệu kế toán và kiểm toán, CSDL từ chối các thao tác ghi đè lên hóa đơn đã hoàn tất.
+          </div>
+        `,
+        onClose: () => {
+          applyLockState(b);
+        }
+      });
+
+      showToast("error", "Lỗi lưu dữ liệu", errorMsg);
     }
   } catch (err) {
     if (btnSave) {
       btnSave.classList.remove("saving");
       btnSave.innerHTML = originalBtnHtml;
     }
+
+    showPopupMessage({
+      type: "error",
+      title: "Lỗi kết nối máy chủ",
+      subtitle: `Không thể kết nối đến máy chủ CSDL`,
+      bodyHtml: `
+        <div style="color: var(--danger); margin-bottom: 8px; font-weight: 600; font-size: 13.5px;">
+          ❌ Gặp sự cố đường truyền mạng khi gửi yêu cầu lưu dữ liệu.
+        </div>
+        <div style="font-size: 12px; color: var(--text-dim); line-height: 1.4;">
+          Chi tiết lỗi: <code>${err.message || 'Network disconnected'}</code>.<br/>
+          Vui lòng kiểm tra lại kết nối mạng tới máy chủ hoặc tải lại trang.
+        </div>
+      `
+    });
+
     showToast("error", "Lỗi kết nối", err.message || "Gặp lỗi kết nối khi lưu dữ liệu");
   }
 }
@@ -2738,6 +2970,16 @@ canvasWrap.addEventListener("wheel", e => {
 
 // Keyboard shortcuts
 window.addEventListener("keydown", e => {
+  // Support closing popup message with Escape or Enter
+  if (e.key === "Escape" || (e.key === "Enter" && document.getElementById("modal-popup-msg")?.style.display === "flex")) {
+    const modal = document.getElementById("modal-popup-msg");
+    if (modal && modal.style.display === "flex") {
+      e.preventDefault();
+      closePopupMessage();
+      return;
+    }
+  }
+
   // Support Ctrl+S / Cmd+S anywhere, including inside input fields
   if ((e.ctrlKey || e.metaKey) && (e.key === "s" || e.key === "S")) {
     e.preventDefault();
