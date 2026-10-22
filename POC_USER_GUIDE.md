@@ -26,87 +26,191 @@
 
 ---
 
-## 3. CÁC TÍNH NĂNG CHÍNH CỦA HỆ THỐNG
+## 3. QUY TRÌNH DUYỆT & KIẾN TRÚC DỮ LIỆU ĐỐI SOÁT (REVIEW WORKFLOW & DATA MODEL)
 
-### 3.1. Soi & Đối soát chi tiết hóa đơn (Split Inspector Screen)
-* **Màn hình chia đôi công thái học (Ergonomic Split Screen)**:
-  - **Cửa sổ trái (Image Canvas)**: Trình xem ảnh hóa đơn chuẩn HD. Hỗ trợ phóng to (Zoom In/Out), xoay 90° (để xem hóa đơn chụp ngang/ngược) và kéo rê ảnh (Pan) mượt mà.
-  - **Cửa sổ phải (Data Panel)**: Hiển thị song song **Kết quả AI đọc ban đầu** và **Ô dữ liệu thực tế** để người dùng đối chiếu tức thì mà không cần chuyển qua lại các tab.
+### 3.1. Phân định rõ 3 tầng dữ liệu: AI Data, Admin Data & Final Data (Cơ chế Coalesce)
 
-### 3.2. Quản lý 2 tầng dữ liệu (Dual-layer Data Architecture)
-Để phục vụ kiểm toán và đánh giá độ chính xác, hệ thống phân tách rõ 2 tầng dữ liệu trên từng hóa đơn:
-1. **Dữ liệu AI đọc (OCR Original Data - Bất biến)**:
-   - Tên gian hàng gốc trên bill (`OcrOutletRaw`) & Mã gian hàng nhận diện (`OcrOutletNumber`).
-   - Độ tin cậy nhận diện gian hàng (`OcrMatchScore`: 0 - 100%).
-   - Số hóa đơn (`OcrBillNumber`), Ngày giờ giao dịch (`OcrDateTime`), Số tiền thanh toán (`OcrTotal`).
-   - Thời gian AI xử lý tính bằng giây (`OcrLatency`).
-2. **Dữ liệu người dùng chốt (Final Approved Data)**:
-   - Dữ liệu do AI đề xuất mặc định, nhưng cho phép người duyệt chỉnh sửa khi hóa đơn bị mờ, rách hoặc sai lệch.
+Để phục vụ công tác thanh tra, kiểm toán (Auditing) và ngăn ngừa thất thoát dữ liệu, hệ thống tách biệt hoàn toàn giữa số liệu AI bóc tách và dữ liệu do con người hiệu chỉnh:
 
-### 3.3. Cơ chế chỉnh sửa trực tiếp (Inline Correction)
-* Khi phát hiện số tiền, ngày giờ hoặc tên gian hàng chưa đúng:
-  - Người dùng có thể nhấp trực tiếp vào ô dữ liệu để sửa.
-  - Nhập **Ghi chú điều chỉnh (Auditor Note)** nêu rõ lý do sửa (ví dụ: *Khách thanh toán 560k nhưng bill in mờ số 0*).
-  - Nhấn nút **"Lưu sửa đổi"**: Hệ thống sẽ tự động bật cảnh báo viền vàng **"Admin đã sửa dữ liệu khác kết quả AI đọc ban đầu"** để các cấp phê duyệt sau dễ dàng nhận biết.
+```
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│ 1. AI DATA (BẤT BIẾN)        │ 2. ADMIN DATA (MẶC ĐỊNH ĐỂ TRỐNG) │ 3. FINAL DATA (KẾT QUẢ CUỐI) │
+├──────────────────────────────┼───────────────────────────────────┼──────────────────────────────┤
+│ • OcrOutletName              │ • AdminOutletName (Để trống)      │ = COALESCE(Admin, AI)        │
+│ • OcrBrand                   │ • AdminBrand (Để trống)           │ Có sửa ➔ Lấy Admin          │
+│ • OcrBillNumber              │ • AdminBillNumber (Để trống)      │ Không sửa ➔ Lấy AI           │
+│ • OcrDateTime                │ • AdminDateTime (Để trống)        │                              │
+│ • OcrTotal                   │ • AdminTotal (Để trống)           │                              │
+└──────────────────────────────┴───────────────────────────────────┴──────────────────────────────┘
+```
 
-### 3.4. Chế độ duyệt hóa đơn để chốt dữ liệu (Approval Workflow)
-* **Phê duyệt [A] (Approve)**:
-  - Chốt hóa đơn thành công và chuyển trạng thái sang `APPROVED`.
-  - Dữ liệu `FinalTotal`, `FinalOutletNumber`, `FinalDateTime` được chốt chính thức để CRM cộng điểm/tích lũy cho hội viên.
-* **Từ chối [R] (Reject)**:
-  - Yêu cầu nhập lý do từ chối (Ví dụ: *Hóa đơn quá mờ không đọc được, Hóa đơn không thuộc trung tâm thương mại, v.v.*).
-  - Hóa đơn chuyển trạng thái sang `REJECTED`.
-* **Phím tắt tiện dụng (Keyboard Shortcuts)**:
-  - Phím `A`: Phê duyệt nhanh.
-  - Phím `R`: Mở bảng từ chối.
-  - Phím `Mũi tên Trái / Phải`: Chuyển lùi / tiến giữa các hóa đơn kế tiếp.
+1. **AI Data (Dữ liệu AI bóc tách ban đầu - Bất biến / Immutable)**:
+   - Các trường dữ liệu: `OcrOutletName`, `OcrBrand`, `OcrBillNumber`, `OcrDateTime`, `OcrTotal`, `OcrLatency`.
+   - **Đặc tính**: Được lưu trữ nguyên bản và vĩnh viễn vào cơ sở dữ liệu ngay khi mô hình AI OCR xử lý xong ảnh bill.
+   - **Quy tắc**: Tuyệt đối **không bị ghi đè, không bị xóa** bởi bất kỳ thao tác nào của người dùng. Đây là thước đo đối chứng độc lập để đo lường độ chính xác của AI và phục vụ kiểm toán đối soát với gian hàng.
 
-### 3.5. Nhật ký kiểm toán toàn diện (Comprehensive Audit Trail)
-* Mọi hành động can thiệp của con người đều được ghi lại vào bảng `OcrBillAuditLogs`:
-  - **Ai làm? (Actor)**: Định danh người duyệt / hệ thống (VD: `CRM Admin`, `Kế toán 1`).
-  - **Làm gì? (Action)**: Duyệt (`APPROVE`), Từ chối (`REJECT`), hoặc Sửa dữ liệu (`UPDATE_FIELD`).
-  - **Chi tiết sửa đổi**: Ghi rõ trường bị sửa, Giá trị cũ (`OldValue`), Giá trị mới (`NewValue`).
-  - **Lý do sửa**: Toàn bộ ghi chú điều chỉnh được lưu vết vĩnh viễn phục vụ thanh tra.
-* **Tab "Nhật ký kiểm toán" trên giao diện**: Cho phép tra cứu toàn bộ dòng thời gian lịch sử của tất cả hóa đơn theo thời gian thực.
+2. **Admin Data (Dữ liệu Admin điều chỉnh - Mặc định để trống / Nullable)**:
+   - Các trường dữ liệu: `AdminOutletName`, `AdminBrand`, `AdminBillNumber`, `AdminDateTime`, `AdminTotal`.
+   - **Đặc tính**: Trên giao diện duyệt, các ô nhập liệu của Admin **mặc định để trống hoàn toàn (Empty/Placeholder)**.
+   - **Quy tắc**:
+     - Nếu AI đã đọc đúng 100%, Admin **không cần làm gì cả** (giữ nguyên để trống).
+     - Admin chỉ nhập số liệu vào ô của trường nào mà AI đọc sai hoặc thiếu (Ví dụ: AI đọc thiếu số 0 ở tiền, hoặc tên quán viết tắt chưa đủ).
+     - Hệ thống **tuyệt đối không tự ý sao chép dữ liệu AI sang cột Admin**, đảm bảo trong database trường nào Admin không sửa thì giá trị là `NULL`.
 
-### 3.6. Bảng danh sách tổng hợp & Lọc thông minh (List & Filter)
-* Thống kê trực quan số lượng: **Tổng số bill**, **Chờ duyệt (Pending)**, **Đã duyệt (Approved)**, **Từ chối (Rejected)** và **Đã sửa tay (Manual Edited)**.
-* Bộ lọc theo trạng thái và thanh tìm kiếm tức thì theo mã hóa đơn, tên file hoặc tên gian hàng.
+3. **Final Data (Số liệu chốt cuối cùng - Tính theo công thức Coalesce)**:
+   - **Quy tắc cốt lõi**:
+     > *`💡 Nếu Admin field để trống thì số liệu cuối cùng theo AI field, nếu Admin nhập thì số liệu cuối cùng theo Admin.`*
+   - **Công thức SQL Coalesce**:
+     ```sql
+     FinalOutletName = COALESCE(AdminOutletName, OcrOutletName)
+     FinalBrand      = COALESCE(AdminBrand, OcrBrand)
+     FinalBillNumber = COALESCE(AdminBillNumber, OcrBillNumber)
+     FinalDateTime   = COALESCE(AdminDateTime, OcrDateTime)
+     FinalTotal      = COALESCE(AdminTotal, OcrTotal)
+     ```
+   - Dữ liệu `Final...` chính là căn cứ pháp lý và tài chính dùng để tích điểm thành viên, kết toán doanh thu gian hàng trên hệ thống CRM.
 
 ---
 
-## 4. QUY TRÌNH THỰC HIỆN THỬ NGHIỆM (KỊCH BẢN POC)
+### 3.2. Vòng đời trạng thái duyệt hóa đơn (Review Status Lifecycle)
 
-Người dùng có thể thực hiện thử nghiệm theo 4 kịch bản sau:
+Mỗi hóa đơn trong hệ thống trải qua một chu trình kiểm soát trạng thái nghiêm ngặt theo mô hình State Machine:
 
-### Kịch bản 1: Kiểm tra tốc độ đọc & Độ chính xác của AI
-1. Truy cập vào Cổng duyệt: [http://14.161.34.37:8080/](http://14.161.34.37:8080/)
-2. Duyệt qua các hóa đơn trong danh sách (sử dụng nút **Tiếp** hoặc phím mũi tên).
-3. **Quan sát**:
-   - Tốc độ hiển thị ảnh và độ trễ xử lý AI (`AI Latency`) ghi nhận trên từng hóa đơn.
-   - Độ chính xác khi nhận diện: Tên gian hàng, Số hóa đơn, Ngày giờ và Tổng tiền thanh toán.
+```
+                  ┌────────────────────────────────────────┐
+                  │          ẢNH HÓA ĐƠN TẢI LÊN           │
+                  └───────────────────┬────────────────────┘
+                                      │ AI OCR xử lý (0.8s - 1.8s)
+                                      ▼
+                  ┌────────────────────────────────────────┐
+                  │          CHỜ DUYỆT (PENDING)           │
+                  │  (Admin được soi ảnh, sửa ô Admin)     │
+                  └───────────┬────────────────┬───────────┘
+                              │                │
+            Nhấn [Phê duyệt]  │                │ Nhấn [Từ chối]
+            (Bill hợp lệ)     │                │ (Kèm lý do bắt buộc)
+                              ▼                ▼
+                  ┌────────────────┐      ┌────────────────┐
+                  │    APPROVED    │      │    REJECTED    │
+                  │  (ĐÃ PHÊ DUYỆT)│      │  (ĐÃ TỪ CHỐI)  │
+                  └───────┬────────┘      └───────┬────────┘
+                          │                       │
+                          └───────────┬───────────┘
+                                      ▼
+                       🔒 [KHÓA DỮ LIỆU CỨNG 100%]
+                       (Khóa ô nhập liệu, ẩn nút duyệt,
+                        chặn cập nhật tại API Backend)
+```
 
-### Kịch bản 2: Phê duyệt nhanh hóa đơn đúng
-1. Chọn một hóa đơn có trạng thái `CHỜ DUYỆT (PENDING)`.
-2. Kiểm tra thông tin khớp với ảnh bên trái.
-3. Nhấn nút xanh **"Phê duyệt [A]"** (hoặc nhấn phím `A`).
-4. **Kết quả**: Huy hiệu trạng thái chuyển ngay sang **`APPROVED`** màu xanh lá; tổng số bill chờ duyệt tự động giảm 1.
+1. **Trạng thái `PENDING` (Chờ duyệt)**:
+   - Trạng thái mặc định sau khi AI OCR xong hóa đơn.
+   - Cho phép Auditor/Admin xem ảnh phóng to, xoay ảnh, kiểm tra thông tin.
+   - Cho phép nhập dữ liệu điều chỉnh vào các ô Admin và bấm **"Lưu thay đổi"**.
+   - Chưa tích điểm CRM cho khách hàng.
 
-### Kịch bản 3: Chỉnh sửa dữ liệu khi AI đọc thiếu/sai và Kiểm tra cảnh báo
-1. Chọn một hóa đơn bất kỳ.
-2. Thử thay đổi số tiền tại ô **"Số tiền thanh toán hợp lệ (VND)"** hoặc sửa **"Cửa hàng / Gian hàng"**.
-3. Nhập lý do vào ô **"Ghi chú điều chỉnh"** (VD: *Khách hàng cung cấp bill bổ sung*).
-4. Nhấn nút xanh dương **"Lưu sửa đổi"**.
-5. **Kết quả**: 
-   - Banner cảnh báo màu vàng xuất hiện: *"Admin đã sửa dữ liệu khác kết quả AI đọc ban đầu!"*.
-   - Khung "Lịch sử kiểm toán của bill này" ở góc dưới ngay lập tức hiển thị bản ghi: `CRM Admin [UPDATE_FIELD] FinalTotal: Giá_trị_cũ ➔ Giá_trị_mới`.
+2. **Trạng thái `APPROVED` (Đã phê duyệt - Chốt hợp lệ)**:
+   - Kích hoạt khi người duyệt nhấn nút xanh **"Phê duyệt [A]"** (hoặc phím tắt `A`).
+   - Hệ thống xác nhận số liệu `Final...` là hợp lệ, kích hoạt cộng điểm thưởng CRM cho hội viên.
+   - **Cơ chế Khóa cứng (Immutability)**: Ngay lập tức vô hiệu hóa toàn bộ ô nhập liệu, ẩn nút duyệt/sửa. Backend API từ chối mọi yêu cầu chỉnh sửa tiếp theo (HTTP 400). Ngăn ngừa triệt để nguy cơ nhân viên gian lận hoặc sửa đổi số liệu sau khi đã duyệt.
 
-### Kịch bản 4: Tra cứu vết kiểm toán dành cho Auditor / Kế toán
-1. Nhấp chuột vào tab **"Nhật ký kiểm toán (Auditor)"** trên thanh điều hướng đầu trang.
-2. **Quan sát**: Toàn bộ danh sách các thao tác duyệt, sửa trường dữ liệu, người sửa và thời gian thực hiện hiển thị chi tiết, minh bạch.
+3. **Trạng thái `REJECTED` (Đã từ chối - Không hợp lệ)**:
+   - Kích hoạt khi người duyệt nhấn nút đỏ **"Từ chối [R]"** (hoặc phím tắt `R`).
+   - **Bắt buộc nhập lý do từ chối**: Người duyệt phải chọn lý do chuẩn hóa từ danh mục gợi ý (hóa đơn mờ, quá hạn 48h, trùng lặp...) hoặc tự nhập chi tiết. Không cho phép gửi lý do rỗng.
+   - Dữ liệu hóa đơn chuyển sang `REJECTED` và cũng được **Khóa cứng**. Lý do từ chối được lưu trữ và đồng bộ về ứng dụng khách hàng để phản hồi minh bạch.
+
+4. **Cờ ghi nhận can thiệp thủ công (`IsManualEdited`)**:
+   - `IsManualEdited = 0`: Hóa đơn được duyệt dựa trên 100% số liệu do AI bóc tách tự động (Admin không nhập bất kỳ trường nào).
+   - `IsManualEdited = 1`: Hóa đơn có ít nhất một trường dữ liệu do Admin can thiệp điều chỉnh (`Admin... IS NOT NULL`).
+
+---
+
+### 3.3. Quy trình 4 bước thẩm định hóa đơn chi tiết trên Web Portal
+
+```
+[Bước 1: Soi ảnh] ➔ [Bước 2: Đối chiếu AI Data] ➔ [Bước 3: Nhập Admin Data (nếu sai)] ➔ [Bước 4: Phê duyệt / Từ chối]
+```
+
+* **Bước 1: Soi & kiểm tra hóa đơn (Cửa sổ bên trái)**:
+  - Rê chuột vào ảnh để kích hoạt **Kính lúp phóng đại (Loupe)** soi rõ số tiền, ngày giờ, số hóa đơn in nhỏ.
+  - Sử dụng các nút công cụ: Phóng to (+), Thu nhỏ (-), Xoay 90° (nếu bill chụp ngược), hoặc giữ `Ctrl` + rê chuột để kéo trượt ảnh (Pan).
+* **Bước 2: Đối chiếu kết quả AI đọc (Cột AI Data)**:
+  - Xem các thông tin do AI bóc tách: Cửa hàng (`OcrOutletName`), Thương hiệu (`OcrBrand`), Số hóa đơn (`OcrBillNumber`), Thời gian (`OcrDateTime`), Số tiền (`OcrTotal`).
+  - Kiểm tra điểm tin cậy nhận diện gian hàng (`Match Score %`).
+* **Bước 3: Điều chỉnh số liệu (Cột Admin Data - nếu có sai lệch)**:
+  - Nếu AI đọc chính xác: **Để trống toàn bộ ô Admin**, chuyển thẳng sang Bước 4.
+  - Nếu AI đọc sai/thiếu trường nào: Nhấp vào ô tương ứng ở cột **"Admin điều chỉnh"** và nhập giá trị đúng.
+  - Nhập lý do vào ô **"Lý do điều chỉnh (Auditor Note)"** (ví dụ: *Bill mờ số 0, khách thanh toán 560.000đ*).
+  - Nhấn nút **"💾 Lưu thay đổi"**: Hệ thống hiển thị Popup Modal xác nhận lưu thành công, thông báo rõ các trường vừa được cập nhật và ghi nhận vết kiểm toán.
+* **Bước 4: Quyết định Phê duyệt hoặc Từ chối**:
+  - Nếu hóa đơn hợp lệ: Nhấn **"✅ Phê duyệt [A]"**. Hóa đơn chuyển sang `APPROVED`, hiển thị banner khóa thành công.
+  - Nếu hóa đơn sai quy định: Nhấn **"❌ Từ chối [R]"**, chọn hoặc gõ lý do từ chối ➔ Xác nhận.
+
+---
+
+### 3.4. Nhật ký kiểm toán toàn diện cấp trường (Field-level Audit Trail)
+
+* Mọi hành động can thiệp của con người đều được ghi lại vào bảng `OcrBillAuditLogs`:
+  - **Ai làm? (Actor)**: Định danh người duyệt / hệ thống (VD: `CRM Admin`, `Kế toán 1`).
+  - **Làm gì? (Action)**: Duyệt (`APPROVE`), Từ chối (`REJECT`), hoặc Sửa dữ liệu (`UPDATE_FIELD`).
+  - **Trường thay đổi (FieldName)**: Ghi rõ trường cụ thể (`AdminTotal`, `AdminOutletName`, `Status`...).
+  - **Chi tiết sửa đổi**: Ghi nhận chính xác Giá trị cũ (`OldValue`) và Giá trị mới (`NewValue`).
+  - **Lý do sửa**: Toàn bộ ghi chú điều chỉnh được lưu vết vĩnh viễn phục vụ thanh tra nội bộ và kiểm toán tài chính.
+* **Tab "Nhật ký kiểm toán" trên giao diện**: Cho phép tra cứu toàn bộ dòng thời gian lịch sử của tất cả hóa đơn theo thời gian thực.
+
+---
+
+### 3.5. Bảng danh sách tổng hợp, Phân trang & Lọc thông minh (List & Filter)
+* **Thống kê trực quan số lượng thẻ KPI**: Tổng số bill, Chờ duyệt (`PENDING`), Đã duyệt (`APPROVED`), Từ chối (`REJECTED`) và Đã sửa tay (`IsManualEdited = 1`).
+* **Thanh phân trang linh hoạt**: Lựa chọn 10, 20, 50 hoặc 100 hóa đơn mỗi trang; nút chuyển trang Trước / Tiếp và nhảy trang tức thì.
+* **Tìm kiếm đa năng**: Lọc theo trạng thái và tìm kiếm nhanh theo mã hóa đơn, tên file ảnh hoặc tên gian hàng.
+
+---
+
+## 4. QUY TRÌNH THỰC HIỆN THỬ NGHIỆM (KỊCH BẢN POC / UAT)
+
+Người dùng và kiểm toán viên có thể thực hiện kiểm thử theo 4 kịch bản chuẩn sau:
+
+### Kịch bản 1: Phê duyệt nhanh hóa đơn AI đọc đúng 100% (Không cần can thiệp)
+1. Chọn một hóa đơn có trạng thái `CHỜ DUYỆT (PENDING)` trong danh sách.
+2. Kiểm tra các trường ở cột **AI Data** khớp hoàn toàn với ảnh hóa đơn bên trái.
+3. Các ô ở cột **Admin Data** giữ nguyên để trống.
+4. Nhấn nút xanh **"Phê duyệt [A]"** (hoặc nhấn phím `A`).
+5. **Kết quả**:
+   - Trạng thái chuyển ngay sang **`APPROVED`** màu xanh lá.
+   - Banner khóa dữ liệu xuất hiện: *"🔒 Hóa đơn đã duyệt bởi CRM Admin vào lúc... — ĐÃ KHÓA DỮ LIỆU"*.
+   - Toàn bộ ô nhập liệu và nút duyệt/sửa tự động khóa, ngăn chặn mọi thay đổi tiếp theo.
+   - Cột `IsManualEdited = 0` (hóa đơn duyệt tự động hoàn toàn).
+
+### Kịch bản 2: Hiệu chỉnh khi AI đọc thiếu/sai tiền và Lưu Audit Log
+1. Chọn một hóa đơn `PENDING` có số tiền AI nhận diện chưa chính xác (ví dụ AI đọc 50.000đ nhưng bill thực tế là 500.000đ).
+2. Tại cột **"Admin điều chỉnh"**, nhấp vào ô **"Số tiền (VND)"** và gõ `500000` (hệ thống tự định dạng `500.000 đ`).
+3. Các trường khác (Cửa hàng, Số bill, Giờ) nếu đúng thì **để trống hoàn toàn**.
+4. Nhập lý do vào ô **"Lý do điều chỉnh (Auditor Note)"**: *"Hóa đơn in mờ số 0, khách thanh toán 500k"*.
+5. Nhấn nút **"💾 Lưu thay đổi"**.
+6. **Kết quả**:
+   - Popup Modal thông báo lưu thành công hiển thị rõ ràng thông tin trường vừa sửa và lý do điều chỉnh.
+   - Bảng **"Lịch sử kiểm toán của bill này"** ở góc dưới hiển thị bản ghi: `CRM Admin [UPDATE_FIELD] AdminTotal: NULL ➔ 500000`.
+   - Cột `IsManualEdited` tự động chuyển thành `1`.
+7. Nhấn **"Phê duyệt [A]"** để chốt hóa đơn.
+
+### Kịch bản 3: Từ chối hóa đơn không hợp lệ
+1. Chọn một hóa đơn không đủ điều kiện (hóa đơn mờ mất thông tin, hóa đơn ngoài TTTM, bill quá 48h).
+2. Nhấn nút đỏ **"Từ chối [R]"** (hoặc phím tắt `R`).
+3. Hộp thoại Từ chối xuất hiện: Chọn một lý do từ danh mục chuẩn hóa (hoặc chọn "Khác" và gõ chi tiết).
+4. Bấm **"Xác nhận từ chối"**.
+5. **Kết quả**:
+   - Trạng thái bill chuyển sang **`REJECTED`** màu đỏ.
+   - Banner từ chối xuất hiện kèm nội dung lý do từ chối.
+   - Form bị khóa cứng, không thể sửa hay duyệt lại.
+
+### Kịch bản 4: Kiểm tra tính bảo toàn dữ liệu & Tra cứu vết kiểm toán (Dành cho Auditor)
+1. Mở bất kỳ hóa đơn nào đã được Admin chỉnh sửa ở Kịch bản 2.
+2. **Quan sát**: Cột **AI Data** vẫn giữ nguyên giá trị gốc ban đầu (`OcrTotal = 50000`), cột **Admin Data** lưu `500000`. Dữ liệu gốc của AI không bao giờ bị mất đi.
+3. Chuyển sang tab **"Nhật ký kiểm toán"** trên thanh điều hướng đầu trang để tra cứu toàn bộ dòng lịch sử thao tác của các nhân viên.
 
 ---
 
 ## 5. THÔNG TIN HỖ TRỢ KỸ THUẬT
 * **Môi trường Database**: MS-SQL Server `CLMHQTEST` (toàn bộ dữ liệu thử nghiệm độc lập hoàn toàn với Production).
+* **Đặc tả kỹ thuật dành cho đội lập trình CRM**: Tham khảo tài liệu [CRM_BILL_REVIEW_AND_AUDIT_TECH_SPEC.md](file:///Volumes/ExternalSSD/ocr-bill/CRM_BILL_REVIEW_AND_AUDIT_TECH_SPEC.md).
 * **Đội hỗ trợ kỹ thuật**: Sẵn sàng giải đáp và tiếp nhận các yêu cầu điều chỉnh nghiệp vụ trong suốt quá trình UAT/POC.
