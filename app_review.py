@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Optional, List, Dict, Any
 from PIL import Image
 
-from fastapi import FastAPI, HTTPException, Query, Response, File, UploadFile, Form, BackgroundTasks
+from fastapi import FastAPI, HTTPException, Query, Response, File, UploadFile, Form, BackgroundTasks, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, FileResponse
 from pydantic import BaseModel
@@ -263,22 +263,24 @@ def get_bill_detail(bill_id: int):
 
 
 @app.post("/api/bills/{bill_id}/review")
-def review_bill(bill_id: int, req: ReviewRequest):
+def review_bill(bill_id: int, req: ReviewRequest, x_actor: Optional[str] = Header(None)):
     try:
+        actor_name = x_actor.strip() if x_actor and x_actor.strip() else (req.actor or "CRM Admin")
         db.update_bill_review(
             bill_id=bill_id,
             status=req.status.upper(),
-            actor=req.actor,
+            actor=actor_name,
             reject_reason=req.reject_reason
         )
-        return {"success": True, "bill_id": bill_id, "status": req.status.upper()}
+        return {"success": True, "bill_id": bill_id, "status": req.status.upper(), "actor": actor_name}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.put("/api/bills/{bill_id}/edit")
-def edit_bill_fields(bill_id: int, req: EditFieldsRequest):
+def edit_bill_fields(bill_id: int, req: EditFieldsRequest, x_actor: Optional[str] = Header(None)):
     try:
+        actor_name = x_actor.strip() if x_actor and x_actor.strip() else (req.actor or "CRM Admin")
         updates = {}
         if req.final_outlet_number is not None:
             updates["final_outlet_number"] = req.final_outlet_number
@@ -294,10 +296,10 @@ def edit_bill_fields(bill_id: int, req: EditFieldsRequest):
         num_changed = db.update_bill_fields(
             bill_id=bill_id,
             updates=updates,
-            actor=req.actor,
+            actor=actor_name,
             note=req.note
         )
-        return {"success": True, "bill_id": bill_id, "fields_changed": num_changed}
+        return {"success": True, "bill_id": bill_id, "fields_changed": num_changed, "actor": actor_name}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -1197,6 +1199,9 @@ tr:hover td { background: rgba(255,255,255,0.02); cursor: pointer; }
     <button class="btn-upload-nav" id="btn-open-upload">
       <span>📤 Tải lên hóa đơn</span>
     </button>
+    <div class="pill" id="user-badge" style="cursor: pointer; background: rgba(56, 189, 248, 0.1); border-color: rgba(56, 189, 248, 0.3); color: var(--accent);" title="Bấm để đổi người duyệt">
+      👤 <b id="current-user-display">CRM Admin</b> ▾
+    </div>
     <div class="pill">Tổng: <b id="stat-total">0</b></div>
     <div class="pill pending">Chờ duyệt: <b id="stat-pending">0</b></div>
     <div class="pill approved">Đã duyệt: <b id="stat-approved">0</b></div>
@@ -1426,7 +1431,99 @@ tr:hover td { background: rgba(255,255,255,0.02); cursor: pointer; }
   </div>
 </div>
 
+<!-- Switch User / Login Modal -->
+<div class="modal-overlay" id="modal-user">
+  <div class="modal-card">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+      <h3>👤 Đăng nhập / Chọn người duyệt (Auditor)</h3>
+      <button id="btn-close-user-x" style="background:none; border:none; color:var(--text-muted); font-size:18px; cursor:pointer;">✕</button>
+    </div>
+    <div style="font-size: 12px; color: var(--text-dim);">
+      Tên người duyệt sẽ được tự động ghi nhận vào <b>Vết kiểm toán (Audit Trail)</b> cho mọi hành động Duyệt, Từ chối hoặc Sửa số tiền.
+    </div>
+    <div class="form-group">
+      <label class="form-label">Chọn tài khoản mẫu:</label>
+      <select class="input-box" id="sel-sample-user">
+        <option value="CRM Admin">CRM Admin (Quản trị viên CRM)</option>
+        <option value="Kế toán - Mai Lan">Kế toán - Mai Lan (Kiểm toán viên 1)</option>
+        <option value="CSKH - Văn Hùng">CSKH - Văn Hùng (Chuyên viên quầy 2)</option>
+        <option value="Auditor - Nguyễn Hoàng">Auditor - Nguyễn Hoàng (Thanh tra nội bộ)</option>
+        <option value="__custom__">-- Tự nhập tên khác --</option>
+      </select>
+    </div>
+    <div class="form-group" id="group-custom-user" style="display: none;">
+      <label class="form-label">Nhập tên hoặc Email của bạn:</label>
+      <input type="text" class="input-box" id="inp-custom-user" placeholder="Ví dụ: tranvanb@gigamall.com.vn">
+    </div>
+    <div style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px;">
+      <button class="btn btn-sec" id="btn-cancel-user">Hủy</button>
+      <button class="btn btn-save" id="btn-save-user">Xác nhận chuyển người dùng</button>
+    </div>
+  </div>
+</div>
+
 <script>
+// User Management State
+function getCurrentUser() {
+  return localStorage.getItem("gigamall_ocr_actor") || "CRM Admin";
+}
+
+function setCurrentUser(userName) {
+  const clean = (userName || "").trim() || "CRM Admin";
+  localStorage.setItem("gigamall_ocr_actor", clean);
+  document.getElementById("current-user-display").textContent = clean;
+}
+
+// User Modal Logic
+const modalUser = document.getElementById("modal-user");
+const selSampleUser = document.getElementById("sel-sample-user");
+const groupCustomUser = document.getElementById("group-custom-user");
+const inpCustomUser = document.getElementById("inp-custom-user");
+
+document.getElementById("user-badge").addEventListener("click", () => {
+  const current = getCurrentUser();
+  modalUser.style.display = "flex";
+  
+  let found = false;
+  for (let opt of selSampleUser.options) {
+    if (opt.value === current) {
+      selSampleUser.value = current;
+      found = true;
+      break;
+    }
+  }
+  if (!found) {
+    selSampleUser.value = "__custom__";
+    groupCustomUser.style.display = "block";
+    inpCustomUser.value = current;
+  } else {
+    groupCustomUser.style.display = "none";
+  }
+});
+
+selSampleUser.addEventListener("change", e => {
+  groupCustomUser.style.display = (e.target.value === "__custom__") ? "block" : "none";
+  if (e.target.value === "__custom__") {
+    inpCustomUser.focus();
+  }
+});
+
+document.getElementById("btn-close-user-x").addEventListener("click", () => modalUser.style.display = "none");
+document.getElementById("btn-cancel-user").addEventListener("click", () => modalUser.style.display = "none");
+
+document.getElementById("btn-save-user").addEventListener("click", () => {
+  let chosen = selSampleUser.value;
+  if (chosen === "__custom__") {
+    chosen = inpCustomUser.value.trim();
+    if (!chosen) {
+      alert("Vui lòng nhập tên người duyệt!");
+      return;
+    }
+  }
+  setCurrentUser(chosen);
+  modalUser.style.display = "none";
+});
+
 // State
 let allBills = [];
 let currentIdx = 0;
@@ -1441,6 +1538,7 @@ const diffAlert = document.getElementById("diff-alert");
 
 // Load Initial Data
 async function init() {
+  setCurrentUser(getCurrentUser());
   await loadOutlets();
   await loadStats();
   await loadBills();
@@ -1576,10 +1674,14 @@ async function submitReview(status, rejectReason = null) {
   // Auto-save any form edits first
   await saveEdits(false);
 
+  const currentUser = getCurrentUser();
   const res = await fetch(`/api/bills/${b.BillId}/review`, {
     method: "POST",
-    headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({ status, actor: "CRM Admin", reject_reason: rejectReason })
+    headers: {
+      "Content-Type": "application/json",
+      "X-Actor": currentUser
+    },
+    body: JSON.stringify({ status, actor: currentUser, reject_reason: rejectReason })
   });
 
   if (res.ok) {
@@ -1608,6 +1710,7 @@ async function saveEdits(showPrompt = true) {
   // Find outlet number if matching master outlets
   const matched = masterOutlets.find(o => o.outlet_name.toLowerCase() === outletName.toLowerCase());
   const outletNum = matched ? matched.outlet_number : b.FinalOutletNumber;
+  const currentUser = getCurrentUser();
 
   const payload = {
     final_outlet_name: outletName,
@@ -1615,13 +1718,16 @@ async function saveEdits(showPrompt = true) {
     final_total: total,
     final_bill_number: billNo,
     final_datetime: dt,
-    actor: "CRM Admin",
+    actor: currentUser,
     note: note
   };
 
   const res = await fetch(`/api/bills/${b.BillId}/edit`, {
     method: "PUT",
-    headers: {"Content-Type": "application/json"},
+    headers: {
+      "Content-Type": "application/json",
+      "X-Actor": currentUser
+    },
     body: JSON.stringify(payload)
   });
 
@@ -1813,7 +1919,7 @@ btnSubmitUpload.addEventListener("click", async () => {
   try {
     const formData = new FormData();
     formData.append("file", selectedUploadFile);
-    formData.append("actor", "Admin Portal UI");
+    formData.append("actor", getCurrentUser());
     formData.append("note", document.getElementById("inp-upload-note").value || "Tải lên từ giao diện Admin");
     formData.append("async_ocr", "false"); // Chạy đồng bộ để nhận kết quả OCR ngay lập tức
 
