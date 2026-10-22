@@ -59,11 +59,31 @@ Dùng khi Mobile App khách hàng tải ảnh lên, hoặc CRM Server 2 chuyển
 | `file` | Binary (File) | **Có** | Tệp ảnh hóa đơn chụp thực tế |
 | `mem_id` | String | Không | Mã thành viên / Khách hàng tích điểm (nếu có) |
 | `image_number` | String | Không | Mã giao dịch / Tên định danh ảnh do CRM quản lý |
+| `duplicate_action`| String | Không | Cơ chế kiểm soát khi phát hiện trùng ảnh: `warn` (mặc định), `allow` (cố tình upload lại), `reject` (chặn do spam/phá) |
+
+> **Mẹo truyền qua Header**: CRM cũng có thể truyền qua HTTP Header `X-Duplicate-Action: warn | allow | reject`.
+
+#### Cơ chế Kiểm Soát Trùng Lặp Từ CRM (`duplicate_action`):
+1. **`warn` (Mặc định)**: Tiếp nhận hóa đơn, chạy OCR, lưu DB ở trạng thái `PENDING`, trả về cảnh báo `is_duplicate: true`, `action_taken: "WARNED"` kèm thông tin bill cũ để CRM tự hiển thị cảnh báo cho nhân viên.
+2. **`allow` (Cố tình upload lại)**: Áp dụng khi khách chụp lại ảnh hoặc CRM chủ động muốn gửi lại hóa đơn bổ sung. Hệ thống chấp nhận, ghi chú rõ ràng `[CRM CHO PHÉP UPLOAD LẠI]`, lưu DB và chạy OCR bình thường, trả về `is_duplicate: true`, `action_taken: "ALLOWED"`.
+3. **`reject` (Chặn hành vi phá / spam / gian lận)**: Áp dụng khi CRM muốn chặn ngay lập tức. Hệ thống **từ chối ngay lập tức**, **không chạy OCR** (tiết kiệm tài nguyên), lưu hóa đơn ở trạng thái `REJECTED` với lý do tự động từ chối theo chính sách CRM, ghi nhận vào Audit Log và trả về `success: false`, `action_taken: "REJECTED"`, `review_status: "REJECTED"`.
 
 #### Cấu trúc Response thành công (HTTP 200 OK):
 ```json
 {
   "success": true,
+  "bill_id": 118,
+  "filename": "ocr_20261022_143000_abc123.jpg",
+  "is_duplicate": true,
+  "duplicate_action": "allow",
+  "action_taken": "ALLOWED",
+  "duplicate_info": {
+    "BillId": 105,
+    "Filename": "10305_181026095239.png",
+    "Status": "APPROVED",
+    "CreatedAt": "2026-10-20 15:00:00"
+  },
+  "message": "Thành công. CRM đã cho phép tải lại dù trùng với Bill #105.",
   "latency_seconds": 0.85,
   "data": {
     "brand_name": "HIGHLANDS COFFEE",
@@ -77,6 +97,27 @@ Dùng khi Mobile App khách hàng tải ảnh lên, hoặc CRM Server 2 chuyển
     "confidence": 0.98
   },
   "raw_output": "{\"brand_name\": \"HIGHLANDS COFFEE\", ...}"
+}
+```
+
+#### Cấu trúc Response khi CRM yêu cầu từ chối do trùng lặp (`duplicate_action: "reject"`):
+```json
+{
+  "success": false,
+  "bill_id": 119,
+  "filename": "ocr_20261022_143100_def456.jpg",
+  "is_duplicate": true,
+  "duplicate_action": "reject",
+  "action_taken": "REJECTED",
+  "review_status": "REJECTED",
+  "reject_reason": "Hóa đơn trùng lặp 100% với Bill #105 (10305_181026095239.png). Hệ thống từ chối nhận ảnh theo cấu hình CRM (chống spam/phá).",
+  "duplicate_info": {
+    "BillId": 105,
+    "Filename": "10305_181026095239.png",
+    "Status": "APPROVED",
+    "CreatedAt": "2026-10-20 15:00:00"
+  },
+  "message": "⛔ TỪ CHỐI: Hóa đơn này trùng lặp với Bill #105 (10305_181026095239.png). Hệ thống đã từ chối nhận ảnh theo yêu cầu chống spam/phá của CRM."
 }
 ```
 

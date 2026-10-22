@@ -440,6 +440,19 @@ def get_all_audit_logs(limit=200):
         conn.close()
 
 
+def bill_exists_by_filename(filename: str) -> bool:
+    """Kiểm tra tên file đã tồn tại trong CSDL OcrBills chưa để tránh trùng lặp UNIQUE KEY."""
+    if not filename:
+        return False
+    conn = get_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT TOP 1 BillId FROM OcrBills WHERE Filename = %s", (filename,))
+        return cursor.fetchone() is not None
+    finally:
+        conn.close()
+
+
 def find_duplicate_bill(file_hash: str) -> Optional[dict]:
     """Tìm hóa đơn đã tồn tại trong CSDL có cùng hash nội dung ảnh (trùng lặp)."""
     if not file_hash:
@@ -493,13 +506,13 @@ def insert_ocr_bill(data: dict) -> int:
             OcrBrand, OcrOutletRaw, OcrOutletNumber, OcrOutletName, OcrMatchScore,
             OcrBillNumber, OcrDateTime, OcrTotal, OcrIsValid, OcrLatency, OcrRawOutput,
             FinalOutletNumber, FinalOutletName, FinalBillNumber, FinalDateTime, FinalTotal,
-            IsManualEdited, FileHash, CreatedAt, UpdatedAt
+            IsManualEdited, FileHash, RejectReason, ReviewedBy, ReviewedAt, CreatedAt, UpdatedAt
         ) VALUES (
             %s, %s, %s,
             %s, %s, %s, %s, %s,
             %s, %s, %s, %s, %s, %s,
             %s, %s, %s, %s, %s,
-            0, %s, %s, %s
+            0, %s, %s, %s, %s, %s, %s
         );
         SELECT @@IDENTITY;
         """, (
@@ -507,7 +520,11 @@ def insert_ocr_bill(data: dict) -> int:
             brand, outlet_raw, out_num, out_name, score,
             bill_num, dt_val, total_val, is_valid, lat, raw_out,
             out_num, out_name, bill_num, dt_val, total_val,
-            file_hash, now, now
+            file_hash,
+            data.get("reject_reason"),
+            data.get("reviewed_by"),
+            data.get("reviewed_at"),
+            now, now
         ))
         row = cursor.fetchone()
         bill_id = int(row[0]) if row and row[0] is not None else None
@@ -522,6 +539,29 @@ def insert_ocr_bill(data: dict) -> int:
 
         conn.commit()
         return bill_id
+    finally:
+        conn.close()
+
+
+def insert_ocr_audit_log(
+    bill_id: int,
+    actor: str,
+    action: str,
+    old_value: str,
+    new_value: str,
+    note: Optional[str] = None,
+    field_name: str = "Status"
+):
+    """Ghi một bản ghi mới vào OcrBillAuditLogs."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    try:
+        now = datetime.now()
+        cursor.execute("""
+        INSERT INTO OcrBillAuditLogs (BillId, Action, FieldName, OldValue, NewValue, Actor, Note, CreatedAt)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        """, (bill_id, action, field_name, old_value, new_value, actor, note or "", now))
+        conn.commit()
     finally:
         conn.close()
 

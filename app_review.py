@@ -69,6 +69,7 @@ class UploadBase64Request(BaseModel):
     note: Optional[str] = "Tải lên từ Mobile qua API Base64"
     async_ocr: bool = True
     auto_ocr: bool = True
+    duplicate_action: Optional[str] = None  # "warn" (mặc định), "allow" (cố tình upload lại), "reject" (từ chối do spam/phá)
 
 
 class TriggerOcrRequest(BaseModel):
@@ -76,6 +77,86 @@ class TriggerOcrRequest(BaseModel):
     limit: int = 50                            # Nếu không truyền bill_ids, chạy tối đa N bill PENDING chưa OCR
     async_execution: bool = True               # true = chạy ngầm trả về mã ngay; false = chờ chạy xong trả kết quả
     actor: str = "CRM Backend API"
+
+
+def _resolve_duplicate_action(action_str: Optional[str], header_str: Optional[str] = None) -> str:
+    """Xác định hành vi xử lý trùng lặp: warn (mặc định), allow (cho phép tải lại), reject (chặn do phá/spam)."""
+    raw = (action_str or header_str or "warn").strip().lower()
+    if raw in ("reject", "block", "deny", "refuse"):
+        return "reject"
+    if raw in ("allow", "force", "permit", "reupload", "accept"):
+        return "allow"
+    return "warn"
+
+
+def _get_duplicate_note_and_action(is_duplicate: bool, dup_action: str, duplicate_bill: Optional[dict], note: Optional[str]):
+    """Chuẩn hóa ghi chú và nhãn action cho hóa đơn trùng lặp."""
+    if not is_duplicate or not duplicate_bill:
+        return note, None
+    if dup_action == "allow":
+        return f"[CRM CHO PHÉP UPLOAD LẠI - Bill #{duplicate_bill['BillId']}] {note or ''}".strip(), "ALLOWED"
+    return f"[TRÙNG LẶP Bill #{duplicate_bill['BillId']}] {note or ''}".strip(), "WARNED"
+
+
+def _build_duplicate_rejection_response(
+    saved_filename: str,
+    file_hash: str,
+    duplicate_bill: dict,
+    actor: str,
+    note: Optional[str],
+    t0: float
+) -> dict:
+    """Từ chối nhận hóa đơn trùng lặp do nghi vấn spam/phá từ CRM, ghi nhận audit và không chạy OCR."""
+    bill_record = {
+        "filename": saved_filename,
+        "image_path": f"uploads/{saved_filename}",
+        "status": "REJECTED",
+        "file_hash": file_hash,
+        "raw_brand": duplicate_bill.get("OcrBrand") or "",
+        "raw_outlet": duplicate_bill.get("OcrOutletName") or "",
+        "outlet_number": duplicate_bill.get("FinalOutletNumber"),
+        "resolved_outlet": duplicate_bill.get("FinalOutletName"),
+        "match_score": 0.0,
+        "bill_number": duplicate_bill.get("FinalBillNumber") or "",
+        "bill_datetime": duplicate_bill.get("FinalDateTime"),
+        "bill_total": duplicate_bill.get("FinalTotal") or 0,
+        "is_valid_bill": False,
+        "latency": 0.0,
+        "raw_output": f"Cảnh báo: Trùng với Bill #{duplicate_bill['BillId']} ({duplicate_bill['Filename']}). Tự động từ chối theo cấu hình CRM (chống spam/phá).",
+        "actor": actor,
+        "note": f"[CRM TỪ CHỐI - PHÁ/SPAM] Phát hiện trùng lặp với Bill #{duplicate_bill['BillId']}: {note or ''}",
+        "reject_reason": f"Hóa đơn trùng lặp 100% với Bill #{duplicate_bill['BillId']} ({duplicate_bill['Filename']}). Hệ thống từ chối nhận ảnh theo cấu hình CRM (chống spam/phá).",
+        "reviewed_by": actor,
+        "reviewed_at": datetime.now()
+    }
+    bill_id = db.insert_ocr_bill(bill_record)
+    db.insert_ocr_audit_log(
+        bill_id=bill_id,
+        actor=actor,
+        action="REJECT_DUPLICATE_CRM",
+        field_name="Status",
+        old_value="PENDING",
+        new_value="REJECTED",
+        note=f"Tự động từ chối do trùng lặp với Bill #{duplicate_bill['BillId']} theo chính sách CRM"
+    )
+    save_latency = round(time.time() - t0, 3)
+    return {
+        "success": False,
+        "bill_id": bill_id,
+        "filename": saved_filename,
+        "image_url": f"/api/images/{saved_filename}",
+        "file_path": f"uploads/{saved_filename}",
+        "is_duplicate": True,
+        "duplicate_action": "reject",
+        "action_taken": "REJECTED",
+        "review_status": "REJECTED",
+        "reject_reason": bill_record["reject_reason"],
+        "duplicate_info": duplicate_bill,
+        "ocr_status": "SKIPPED",
+        "ocr_result": None,
+        "save_latency_seconds": save_latency,
+        "message": f"⛔ TỪ CHỐI: Hóa đơn này trùng lặp với Bill #{duplicate_bill['BillId']} ({duplicate_bill['Filename']}). Hệ thống đã từ chối nhận ảnh theo yêu cầu chống spam/phá của CRM."
+    }
 
 
 def _save_and_validate_image_bytes(
@@ -124,16 +205,15 @@ def _save_and_validate_image_bytes(
         unique_suffix = uuid.uuid4().hex[:6]
         saved_filename = f"ocr_{timestamp_str}_{unique_suffix}{detected_ext}"
 
-    # Đảm bảo không ghi đè nếu trùng tên file đã có trên đĩa
+    # Đảm bảo không ghi đè nếu trùng tên file đã có trên đĩa hoặc trong CSDL
     save_path = UPLOAD_DIR / saved_filename
-    if save_path.exists():
-        stem = Path(saved_filename).stem
-        ext = Path(saved_filename).suffix
-        counter = 1
-        while (UPLOAD_DIR / f"{stem}_{counter}{ext}").exists():
-            counter += 1
+    stem = Path(saved_filename).stem
+    ext = Path(saved_filename).suffix
+    counter = 1
+    while save_path.exists() or db.bill_exists_by_filename(saved_filename):
         saved_filename = f"{stem}_{counter}{ext}"
         save_path = UPLOAD_DIR / saved_filename
+        counter += 1
 
     with open(save_path, "wb") as f:
         f.write(image_bytes)
@@ -393,14 +473,19 @@ async def upload_bill_multipart(
     actor: str = Form("CRM Mobile"),
     note: Optional[str] = Form("Tải lên từ Mobile qua API Multipart"),
     async_ocr: Optional[str] = Form(None),
-    auto_ocr: Optional[str] = Form(None)
+    auto_ocr: Optional[str] = Form(None),
+    duplicate_action: Optional[str] = Form(None),
+    x_duplicate_action: Optional[str] = Header(None)
 ):
     """
     API tiếp nhận ảnh chụp từ Mobile qua Multipart Form-Data:
     - Lưu ảnh an toàn xuống ổ đĩa máy chủ (uploads/) trong < 50ms
     - Mặc định async_ocr=True: Kích hoạt OCR chạy ngầm, phản hồi ngay lập tức cho Mobile/CRM (< 100ms)
     - Nếu async_ocr=False: Chờ chạy xong OCR rồi mới phản hồi (Sync)
-    - Tạo bản ghi trong CSDL MS-SQL (bảng OcrBills) ở trạng thái PENDING
+    - Kiểm soát trùng lặp từ CRM qua duplicate_action / Header X-Duplicate-Action:
+        + 'warn' (mặc định): Lưu bill PENDING, cảnh báo is_duplicate: True
+        + 'allow': Cho phép upload lại bổ sung (cố tình), ghi nhận log rõ ràng
+        + 'reject': Từ chối lập tức (chống spam/phá), không chạy OCR, lưu REJECTED
     """
     try:
         t0 = time.time()
@@ -417,6 +502,19 @@ async def upload_bill_multipart(
         # Kiểm tra trùng lặp ảnh (Duplicate Check)
         duplicate_bill = db.find_duplicate_bill(file_hash)
         is_duplicate = duplicate_bill is not None
+        dup_action = _resolve_duplicate_action(duplicate_action, x_duplicate_action)
+
+        if is_duplicate and dup_action == "reject":
+            return _build_duplicate_rejection_response(
+                saved_filename=saved_filename,
+                file_hash=file_hash,
+                duplicate_bill=duplicate_bill,
+                actor=actor,
+                note=note,
+                t0=t0
+            )
+
+        final_note, action_taken = _get_duplicate_note_and_action(is_duplicate, dup_action, duplicate_bill, note)
 
         if not is_auto:
             bill_record = {
@@ -436,7 +534,7 @@ async def upload_bill_multipart(
                 "latency": 0.0,
                 "raw_output": "Chỉ lưu ảnh, không chạy OCR" if not is_duplicate else f"Cảnh báo: Trùng với Bill #{duplicate_bill['BillId']} ({duplicate_bill['Filename']})",
                 "actor": actor,
-                "note": note if not is_duplicate else f"[TRÙNG LẶP Bill #{duplicate_bill['BillId']}] {note or ''}",
+                "note": final_note,
             }
             bill_id = db.insert_ocr_bill(bill_record)
             save_latency = round(time.time() - t0, 3)
@@ -447,12 +545,20 @@ async def upload_bill_multipart(
                 "image_url": f"/api/images/{saved_filename}",
                 "file_path": f"uploads/{saved_filename}",
                 "is_duplicate": is_duplicate,
+                "duplicate_action": dup_action if is_duplicate else None,
+                "action_taken": action_taken,
                 "duplicate_info": duplicate_bill,
                 "ocr_status": "SKIPPED",
                 "ocr_result": None,
                 "review_status": "PENDING",
                 "save_latency_seconds": save_latency,
-                "message": (f"Ảnh đã lưu an toàn trong {save_latency}s. " + (f"⚠️ CẢNH BÁO: Ảnh này trùng lặp với Bill #{duplicate_bill['BillId']}!" if is_duplicate else ""))
+                "message": (
+                    f"Ảnh đã lưu an toàn trong {save_latency}s." + (
+                        f" ⚠️ CẢNH BÁO: Trùng lặp với Bill #{duplicate_bill['BillId']}!" if is_duplicate and action_taken == "WARNED" else (
+                            f" ✅ CRM đã chủ động cho phép tải lại dù trùng với Bill #{duplicate_bill['BillId']}." if is_duplicate and action_taken == "ALLOWED" else ""
+                        )
+                    )
+                )
             }
 
         if is_async:
@@ -474,7 +580,7 @@ async def upload_bill_multipart(
                 "latency": 0.0,
                 "raw_output": "Đang xếp hàng bóc tách OCR ngầm..." if not is_duplicate else f"Cảnh báo: Trùng với Bill #{duplicate_bill['BillId']} ({duplicate_bill['Filename']})",
                 "actor": actor,
-                "note": note if not is_duplicate else f"[TRÙNG LẶP Bill #{duplicate_bill['BillId']}] {note or ''}",
+                "note": final_note,
             }
             bill_id = db.insert_ocr_bill(bill_record)
             background_tasks.add_task(run_background_ocr, bill_id, save_path)
@@ -487,12 +593,20 @@ async def upload_bill_multipart(
                 "image_url": f"/api/images/{saved_filename}",
                 "file_path": f"uploads/{saved_filename}",
                 "is_duplicate": is_duplicate,
+                "duplicate_action": dup_action if is_duplicate else None,
+                "action_taken": action_taken,
                 "duplicate_info": duplicate_bill,
                 "ocr_status": "PROCESSING",
                 "ocr_result": None,
                 "review_status": "PENDING",
                 "save_latency_seconds": save_latency,
-                "message": (f"Ảnh đã lưu trong {save_latency}s. AI đang chạy ngầm. " + (f"⚠️ CẢNH BÁO: Ảnh này trùng lặp với Bill #{duplicate_bill['BillId']}!" if is_duplicate else ""))
+                "message": (
+                    f"Ảnh đã lưu trong {save_latency}s. AI đang chạy ngầm." + (
+                        f" ⚠️ CẢNH BÁO: Trùng lặp với Bill #{duplicate_bill['BillId']}!" if is_duplicate and action_taken == "WARNED" else (
+                            f" ✅ CRM đã chủ động cho phép tải lại dù trùng với Bill #{duplicate_bill['BillId']}." if is_duplicate and action_taken == "ALLOWED" else ""
+                        )
+                    )
+                )
             }
         else:
             # Luồng đồng bộ: Chờ OCR chạy xong mới phản hồi
@@ -530,9 +644,9 @@ async def upload_bill_multipart(
                 "bill_total": ocr_data["bill_total"],
                 "is_valid_bill": ocr_data["is_valid_bill"],
                 "latency": ocr_data["latency"],
-                "raw_output": ocr_data["raw_output"] if not is_duplicate else f"[TRÙNG LẶP Bill #{duplicate_bill['BillId']}] {ocr_data['raw_output']}",
+                "raw_output": ocr_data["raw_output"] if not is_duplicate else f"[{action_taken} Bill #{duplicate_bill['BillId']}] {ocr_data['raw_output']}",
                 "actor": actor,
-                "note": note if not is_duplicate else f"[TRÙNG LẶP Bill #{duplicate_bill['BillId']}] {note or ''}",
+                "note": final_note,
             }
             bill_id = db.insert_ocr_bill(bill_record)
             save_latency = round(time.time() - t0, 3)
@@ -544,12 +658,20 @@ async def upload_bill_multipart(
                 "image_url": f"/api/images/{saved_filename}",
                 "file_path": f"uploads/{saved_filename}",
                 "is_duplicate": is_duplicate,
+                "duplicate_action": dup_action if is_duplicate else None,
+                "action_taken": action_taken,
                 "duplicate_info": duplicate_bill,
                 "ocr_status": ocr_status,
                 "ocr_result": ocr_data,
                 "review_status": "PENDING",
                 "save_latency_seconds": save_latency,
-                "message": (f"Bóc tách OCR hoàn tất trong {save_latency}s. " + (f"⚠️ CẢNH BÁO: Hóa đơn này TRÙNG LẶP với Bill #{duplicate_bill['BillId']}!" if is_duplicate else ""))
+                "message": (
+                    f"Bóc tách OCR hoàn tất trong {save_latency}s." + (
+                        f" ⚠️ CẢNH BÁO: Hóa đơn này TRÙNG LẶP với Bill #{duplicate_bill['BillId']}!" if is_duplicate and action_taken == "WARNED" else (
+                            f" ✅ CRM đã chủ động cho phép tải lại dù trùng với Bill #{duplicate_bill['BillId']}." if is_duplicate and action_taken == "ALLOWED" else ""
+                        )
+                    )
+                )
             }
     except HTTPException:
         raise
@@ -558,13 +680,20 @@ async def upload_bill_multipart(
 
 
 @app.post("/api/v1/bills/upload-base64")
-def upload_bill_base64(req: UploadBase64Request, background_tasks: BackgroundTasks):
+def upload_bill_base64(
+    req: UploadBase64Request,
+    background_tasks: BackgroundTasks,
+    x_duplicate_action: Optional[str] = Header(None)
+):
     """
     API tiếp nhận ảnh chụp từ Mobile qua Base64 JSON:
     - Lưu ảnh an toàn xuống ổ đĩa máy chủ (uploads/) trong < 50ms
     - Mặc định req.async_ocr=True: Kích hoạt OCR chạy ngầm, phản hồi ngay lập tức cho Mobile/CRM (< 100ms)
     - Nếu req.async_ocr=False: Chờ chạy xong OCR rồi mới phản hồi (Sync)
-    - Tạo bản ghi trong CSDL MS-SQL (bảng OcrBills) ở trạng thái PENDING
+    - Kiểm soát trùng lặp từ CRM qua req.duplicate_action / Header X-Duplicate-Action:
+        + 'warn' (mặc định): Lưu bill PENDING, cảnh báo is_duplicate: True
+        + 'allow': Cho phép upload lại bổ sung (cố tình), ghi nhận log rõ ràng
+        + 'reject': Từ chối lập tức (chống spam/phá), không chạy OCR, lưu REJECTED
     """
     try:
         t0 = time.time()
@@ -587,6 +716,19 @@ def upload_bill_base64(req: UploadBase64Request, background_tasks: BackgroundTas
         # Kiểm tra trùng lặp ảnh (Duplicate Check)
         duplicate_bill = db.find_duplicate_bill(file_hash)
         is_duplicate = duplicate_bill is not None
+        dup_action = _resolve_duplicate_action(req.duplicate_action, x_duplicate_action)
+
+        if is_duplicate and dup_action == "reject":
+            return _build_duplicate_rejection_response(
+                saved_filename=saved_filename,
+                file_hash=file_hash,
+                duplicate_bill=duplicate_bill,
+                actor=req.actor,
+                note=req.note,
+                t0=t0
+            )
+
+        final_note, action_taken = _get_duplicate_note_and_action(is_duplicate, dup_action, duplicate_bill, req.note)
 
         if not is_auto:
             bill_record = {
@@ -606,7 +748,7 @@ def upload_bill_base64(req: UploadBase64Request, background_tasks: BackgroundTas
                 "latency": 0.0,
                 "raw_output": "Chỉ lưu ảnh, không chạy OCR" if not is_duplicate else f"Cảnh báo: Trùng với Bill #{duplicate_bill['BillId']} ({duplicate_bill['Filename']})",
                 "actor": req.actor,
-                "note": req.note if not is_duplicate else f"[TRÙNG LẶP Bill #{duplicate_bill['BillId']}] {req.note or ''}",
+                "note": final_note,
             }
             bill_id = db.insert_ocr_bill(bill_record)
             save_latency = round(time.time() - t0, 3)
@@ -617,12 +759,20 @@ def upload_bill_base64(req: UploadBase64Request, background_tasks: BackgroundTas
                 "image_url": f"/api/images/{saved_filename}",
                 "file_path": f"uploads/{saved_filename}",
                 "is_duplicate": is_duplicate,
+                "duplicate_action": dup_action if is_duplicate else None,
+                "action_taken": action_taken,
                 "duplicate_info": duplicate_bill,
                 "ocr_status": "SKIPPED",
                 "ocr_result": None,
                 "review_status": "PENDING",
                 "save_latency_seconds": save_latency,
-                "message": (f"Ảnh đã lưu an toàn trong {save_latency}s." + (f" ⚠️ CẢNH BÁO: Trùng lặp với Bill #{duplicate_bill['BillId']}!" if is_duplicate else ""))
+                "message": (
+                    f"Ảnh đã lưu an toàn trong {save_latency}s." + (
+                        f" ⚠️ CẢNH BÁO: Trùng lặp với Bill #{duplicate_bill['BillId']}!" if is_duplicate and action_taken == "WARNED" else (
+                            f" ✅ CRM đã chủ động cho phép tải lại dù trùng với Bill #{duplicate_bill['BillId']}." if is_duplicate and action_taken == "ALLOWED" else ""
+                        )
+                    )
+                )
             }
 
         if is_async:
@@ -643,7 +793,7 @@ def upload_bill_base64(req: UploadBase64Request, background_tasks: BackgroundTas
                 "latency": 0.0,
                 "raw_output": "Đang xếp hàng bóc tách OCR ngầm..." if not is_duplicate else f"Cảnh báo: Trùng với Bill #{duplicate_bill['BillId']} ({duplicate_bill['Filename']})",
                 "actor": req.actor,
-                "note": req.note if not is_duplicate else f"[TRÙNG LẶP Bill #{duplicate_bill['BillId']}] {req.note or ''}",
+                "note": final_note,
             }
             bill_id = db.insert_ocr_bill(bill_record)
             background_tasks.add_task(run_background_ocr, bill_id, save_path)
@@ -656,12 +806,20 @@ def upload_bill_base64(req: UploadBase64Request, background_tasks: BackgroundTas
                 "image_url": f"/api/images/{saved_filename}",
                 "file_path": f"uploads/{saved_filename}",
                 "is_duplicate": is_duplicate,
+                "duplicate_action": dup_action if is_duplicate else None,
+                "action_taken": action_taken,
                 "duplicate_info": duplicate_bill,
                 "ocr_status": "PROCESSING",
                 "ocr_result": None,
                 "review_status": "PENDING",
                 "save_latency_seconds": save_latency,
-                "message": (f"Ảnh đã lưu an toàn xuống đĩa máy chủ trong {save_latency}s. AI đang chạy bóc tách ngầm." + (f" ⚠️ CẢNH BÁO: Trùng lặp với Bill #{duplicate_bill['BillId']}!" if is_duplicate else ""))
+                "message": (
+                    f"Ảnh đã lưu an toàn xuống đĩa máy chủ trong {save_latency}s. AI đang chạy bóc tách ngầm." + (
+                        f" ⚠️ CẢNH BÁO: Trùng lặp với Bill #{duplicate_bill['BillId']}!" if is_duplicate and action_taken == "WARNED" else (
+                            f" ✅ CRM đã chủ động cho phép tải lại dù trùng với Bill #{duplicate_bill['BillId']}." if is_duplicate and action_taken == "ALLOWED" else ""
+                        )
+                    )
+                )
             }
         else:
             try:
@@ -698,9 +856,9 @@ def upload_bill_base64(req: UploadBase64Request, background_tasks: BackgroundTas
                 "bill_total": ocr_data["bill_total"],
                 "is_valid_bill": ocr_data["is_valid_bill"],
                 "latency": ocr_data["latency"],
-                "raw_output": ocr_data["raw_output"] if not is_duplicate else f"[TRÙNG LẶP Bill #{duplicate_bill['BillId']}] {ocr_data['raw_output']}",
+                "raw_output": ocr_data["raw_output"] if not is_duplicate else f"[{action_taken} Bill #{duplicate_bill['BillId']}] {ocr_data['raw_output']}",
                 "actor": req.actor,
-                "note": req.note if not is_duplicate else f"[TRÙNG LẶP Bill #{duplicate_bill['BillId']}] {req.note or ''}",
+                "note": final_note,
             }
             bill_id = db.insert_ocr_bill(bill_record)
             save_latency = round(time.time() - t0, 3)
@@ -712,12 +870,20 @@ def upload_bill_base64(req: UploadBase64Request, background_tasks: BackgroundTas
                 "image_url": f"/api/images/{saved_filename}",
                 "file_path": f"uploads/{saved_filename}",
                 "is_duplicate": is_duplicate,
+                "duplicate_action": dup_action if is_duplicate else None,
+                "action_taken": action_taken,
                 "duplicate_info": duplicate_bill,
                 "ocr_status": ocr_status,
                 "ocr_result": ocr_data,
                 "review_status": "PENDING",
                 "save_latency_seconds": save_latency,
-                "message": (f"Ảnh đã được lưu và hoàn tất bóc tách OCR trong {save_latency}s." if ocr_status == "SUCCESS" else "Ảnh đã lưu vào đĩa thành công. OCR không đọc được, đã chuyển Admin duyệt tay.") + (f" ⚠️ CẢNH BÁO: Hóa đơn này TRÙNG LẶP với Bill #{duplicate_bill['BillId']}!" if is_duplicate else "")
+                "message": (
+                    f"Ảnh đã được lưu và hoàn tất bóc tách OCR trong {save_latency}s." if ocr_status == "SUCCESS" else "Ảnh đã lưu vào đĩa thành công. OCR không đọc được, đã chuyển Admin duyệt tay."
+                ) + (
+                    f" ⚠️ CẢNH BÁO: Hóa đơn này TRÙNG LẶP với Bill #{duplicate_bill['BillId']}!" if is_duplicate and action_taken == "WARNED" else (
+                        f" ✅ CRM đã chủ động cho phép tải lại dù trùng với Bill #{duplicate_bill['BillId']}." if is_duplicate and action_taken == "ALLOWED" else ""
+                    )
+                )
             }
     except HTTPException:
         raise
@@ -730,14 +896,19 @@ async def extract_bill_alias(
     file: UploadFile = File(...),
     filename: Optional[str] = Form(None),
     image_number: Optional[str] = Form(None),
-    mem_id: Optional[str] = Form(None)
+    mem_id: Optional[str] = Form(None),
+    duplicate_action: Optional[str] = Form(None),
+    x_duplicate_action: Optional[str] = Header(None)
 ):
     """
     Endpoint tương thích ngược theo đặc tả CRM Spec (/api/v1/extract-bill):
     - Nhận ảnh qua multipart/form-data
     - Ưu tiên sử dụng tên file do CRM truyền (filename hoặc image_number)
     - Nếu không truyền thì OCR tự động sinh tên file (ocr_YYYYMMDD_HHMMSS_xxxxxx)
-    - Kiểm tra trùng lặp ảnh: nếu CRM upload lại bill đã có, thông báo rõ trong payload
+    - Kiểm soát trùng lặp từ CRM qua duplicate_action / Header X-Duplicate-Action:
+        + 'warn' (mặc định): Trả về cảnh báo is_duplicate: True, action_taken: 'WARNED'
+        + 'allow': Cho phép upload lại bổ sung (cố tình), action_taken: 'ALLOWED'
+        + 'reject': Từ chối lập tức (chống spam/phá), không chạy OCR, action_taken: 'REJECTED'
     - Thực hiện OCR đồng bộ và trả về kết quả bóc tách ngay lập tức
     """
     try:
@@ -751,11 +922,24 @@ async def extract_bill_alias(
         )
         duplicate_bill = db.find_duplicate_bill(file_hash)
         is_duplicate = duplicate_bill is not None
+        dup_action = _resolve_duplicate_action(duplicate_action, x_duplicate_action)
 
         actor = f"CRM Member {mem_id}" if mem_id else "CRM Direct API"
-        note = f"Bóc tách qua /api/v1/extract-bill (image_number: {image_number or 'N/A'})"
-        if is_duplicate:
-            note += f" [TRÙNG LẶP Bill #{duplicate_bill['BillId']}]"
+        base_note = f"Bóc tách qua /api/v1/extract-bill (image_number: {image_number or 'N/A'})"
+
+        if is_duplicate and dup_action == "reject":
+            res = _build_duplicate_rejection_response(
+                saved_filename=saved_filename,
+                file_hash=file_hash,
+                duplicate_bill=duplicate_bill,
+                actor=actor,
+                note=base_note,
+                t0=t0
+            )
+            res["data"] = None
+            return res
+
+        final_note, action_taken = _get_duplicate_note_and_action(is_duplicate, dup_action, duplicate_bill, base_note)
 
         try:
             ocr_data = ocr_engine.process_bill_image(save_path)
@@ -791,9 +975,9 @@ async def extract_bill_alias(
             "bill_total": ocr_data["bill_total"],
             "is_valid_bill": ocr_data["is_valid_bill"],
             "latency": ocr_data["latency"],
-            "raw_output": ocr_data["raw_output"] if not is_duplicate else f"[TRÙNG LẶP Bill #{duplicate_bill['BillId']}] {ocr_data['raw_output']}",
+            "raw_output": ocr_data["raw_output"] if not is_duplicate else f"[{action_taken} Bill #{duplicate_bill['BillId']}] {ocr_data['raw_output']}",
             "actor": actor,
-            "note": note,
+            "note": final_note,
         }
         bill_id = db.insert_ocr_bill(bill_record)
         total_latency = round(time.time() - t0, 3)
@@ -804,8 +988,14 @@ async def extract_bill_alias(
             "filename": saved_filename,
             "image_url": f"/api/images/{saved_filename}",
             "is_duplicate": is_duplicate,
+            "duplicate_action": dup_action if is_duplicate else None,
+            "action_taken": action_taken,
             "duplicate_info": duplicate_bill,
-            "message": "Cảnh báo: Bill này đã từng được tải lên trước đó (Upload lại)." if is_duplicate else "Thành công",
+            "message": (
+                f"Cảnh báo: Bill này đã từng được tải lên trước đó (Upload lại - Bill #{duplicate_bill['BillId']})." if is_duplicate and action_taken == "WARNED" else (
+                    f"Thành công. CRM đã cho phép tải lại dù trùng với Bill #{duplicate_bill['BillId']}." if is_duplicate and action_taken == "ALLOWED" else "Thành công"
+                )
+            ),
             "latency_seconds": total_latency,
             "data": {
                 "brand_name": ocr_data.get("raw_brand", ""),
@@ -819,7 +1009,7 @@ async def extract_bill_alias(
                 "match_score": ocr_data.get("match_score", 0.0),
                 "confidence": ocr_data.get("match_score", 0.0)
             },
-            "raw_output": ocr_data.get("raw_output", "")
+            "raw_output": bill_record["raw_output"]
         }
     except HTTPException:
         raise
