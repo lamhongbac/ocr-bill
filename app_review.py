@@ -1300,7 +1300,7 @@ tr:hover td { background: rgba(255,255,255,0.02); cursor: pointer; }
         <div class="loupe-lens" id="loupe-lens"></div>
       </div>
       <div class="img-toolbar">
-        <button class="tool-btn" id="btn-toggle-loupe" title="Soi kính lúp phóng to vùng trỏ chuột (Phím Z)">🔬</button>
+        <button class="tool-btn" id="btn-toggle-loupe" title="Soi kính lúp (Phím Z). Giữ Ctrl + Kéo chuột trái để cuộn ảnh">🔬</button>
         <button class="tool-btn" id="btn-zoom-in" title="Phóng to (+)">🔍+</button>
         <button class="tool-btn" id="btn-zoom-out" title="Thu nhỏ (-)">🔍-</button>
         <button class="tool-btn" id="btn-rotate-left" title="Xoay trái 90°">↺</button>
@@ -1690,6 +1690,13 @@ let currentIdx = 0;
 let masterOutlets = [];
 let imgScale = 1;
 let imgRotate = 0;
+let imgPanX = 0;
+let imgPanY = 0;
+let isPanning = false;
+let startMouseX = 0;
+let startMouseY = 0;
+let startPanX = 0;
+let startPanY = 0;
 let currentFilter = "ALL";
 let currentPage = 1;
 let currentLimit = 50;
@@ -1872,8 +1879,8 @@ function showBill(idx) {
   currentIdx = idx;
   const b = allBills[idx];
 
-  // Reset image transform & loupe
-  imgScale = 1; imgRotate = 0;
+  // Reset image transform, pan & loupe
+  imgScale = 1; imgRotate = 0; imgPanX = 0; imgPanY = 0;
   updateImgTransform();
   if (loupeLens) loupeLens.style.display = "none";
 
@@ -2086,22 +2093,25 @@ async function saveEdits(showPrompt = true) {
   }
 }
 
-// Image tools & Requirement 1: Loupe Magnifier (Zoom theo khu vực)
+// Image tools & Requirement 1: Loupe Magnifier (Zoom theo khu vực & Kéo cuộn ảnh)
 function updateImgTransform() {
-  billImg.style.transform = `scale(${imgScale}) rotate(${imgRotate}deg)`;
+  billImg.style.transform = `translate(${imgPanX}px, ${imgPanY}px) scale(${imgScale}) rotate(${imgRotate}deg)`;
 }
 document.getElementById("btn-zoom-in").addEventListener("click", () => { imgScale = Math.min(imgScale + 0.25, 3.5); updateImgTransform(); });
 document.getElementById("btn-zoom-out").addEventListener("click", () => { imgScale = Math.max(imgScale - 0.25, 0.5); updateImgTransform(); });
 document.getElementById("btn-rotate-right").addEventListener("click", () => { imgRotate = (imgRotate + 90) % 360; updateImgTransform(); });
 document.getElementById("btn-rotate-left").addEventListener("click", () => { imgRotate = (imgRotate - 90 + 360) % 360; updateImgTransform(); });
-document.getElementById("btn-zoom-reset").addEventListener("click", () => { imgScale = 1; imgRotate = 0; updateImgTransform(); });
+document.getElementById("btn-zoom-reset").addEventListener("click", () => {
+  imgScale = 1; imgRotate = 0; imgPanX = 0; imgPanY = 0;
+  updateImgTransform();
+});
 
 btnToggleLoupe.addEventListener("click", toggleLoupe);
 
 function toggleLoupe() {
   isLoupeActive = !isLoupeActive;
   btnToggleLoupe.classList.toggle("active", isLoupeActive);
-  btnToggleLoupe.title = isLoupeActive ? "Đang bật kính lúp vùng (Nhấn Z để tắt)" : "Soi kính lúp phóng to vùng trỏ chuột (Phím Z)";
+  btnToggleLoupe.title = isLoupeActive ? "Đang bật kính lúp vùng (Nhấn Z để tắt). Giữ Ctrl + Kéo chuột để cuộn ảnh" : "Soi kính lúp phóng to vùng trỏ chuột (Phím Z)";
   if (!isLoupeActive) {
     loupeLens.style.display = "none";
     canvasWrap.style.cursor = "grab";
@@ -2110,7 +2120,34 @@ function toggleLoupe() {
   }
 }
 
-canvasWrap.addEventListener("mousemove", e => {
+// Drag & Pan Image: Hỗ trợ Giữ Ctrl + Chuột trái HOẶC Chuột giữa HOẶC Chuột trái khi tắt Loupe
+canvasWrap.addEventListener("mousedown", e => {
+  const isCtrlLeft = (e.ctrlKey || e.metaKey) && e.button === 0;
+  const isMiddle = e.button === 1;
+  const isNormalPan = !isLoupeActive && e.button === 0;
+
+  if (isCtrlLeft || isMiddle || isNormalPan) {
+    isPanning = true;
+    startMouseX = e.clientX;
+    startMouseY = e.clientY;
+    startPanX = imgPanX;
+    startPanY = imgPanY;
+    canvasWrap.style.cursor = "grabbing";
+    billImg.style.transition = "none";
+    if (loupeLens) loupeLens.style.display = "none";
+    e.preventDefault();
+  }
+});
+
+window.addEventListener("mousemove", e => {
+  if (isPanning) {
+    imgPanX = startPanX + (e.clientX - startMouseX);
+    imgPanY = startPanY + (e.clientY - startMouseY);
+    updateImgTransform();
+    if (loupeLens) loupeLens.style.display = "none";
+    return;
+  }
+
   if (!isLoupeActive || !billImg.naturalWidth) return;
   const rect = billImg.getBoundingClientRect();
   const mouseX = e.clientX;
@@ -2138,13 +2175,25 @@ canvasWrap.addEventListener("mousemove", e => {
   loupeLens.style.backgroundPosition = `${bgX}px ${bgY}px`;
 });
 
-canvasWrap.addEventListener("mouseleave", () => {
-  if (isLoupeActive) loupeLens.style.display = "none";
+window.addEventListener("mouseup", () => {
+  if (isPanning) {
+    isPanning = false;
+    billImg.style.transition = "transform 0.15s cubic-bezier(0.2,0,0,1)";
+    canvasWrap.style.cursor = isLoupeActive ? "crosshair" : "grab";
+  }
 });
 
-// Wheel adjusts loupe magnification level when active
+// Wheel: Cuộn ảnh lên/xuống (hoặc chỉnh độ phóng kính lúp khi đang soi)
 canvasWrap.addEventListener("wheel", e => {
   if (isLoupeActive) {
+    if (e.ctrlKey || e.metaKey) {
+      // Giữ Ctrl + Lăn chuột để cuộn ảnh lên xuống
+      e.preventDefault();
+      imgPanY -= e.deltaY;
+      updateImgTransform();
+      return;
+    }
+    // Lăn chuột bình thường trong chế độ kính lúp để tăng giảm độ phóng đại
     e.preventDefault();
     if (e.deltaY < 0) {
       loupeZoom = Math.min(loupeZoom + 0.5, 6);
@@ -2152,6 +2201,11 @@ canvasWrap.addEventListener("wheel", e => {
       loupeZoom = Math.max(loupeZoom - 0.5, 1.5);
     }
     canvasWrap.dispatchEvent(new MouseEvent("mousemove", { clientX: e.clientX, clientY: e.clientY }));
+  } else {
+    // Khi kính lúp tắt, lăn chuột để cuộn dọc hóa đơn
+    e.preventDefault();
+    imgPanY -= e.deltaY;
+    updateImgTransform();
   }
 }, { passive: false });
 
