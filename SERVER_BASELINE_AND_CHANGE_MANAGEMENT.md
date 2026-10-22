@@ -101,38 +101,159 @@
 
 ---
 
-## 6. QUY TRÌNH QUẢN LÝ THAY ĐỔI (CHANGE MANAGEMENT WORKFLOW)
+## 6. QUY TRÌNH QUẢN LÝ THAY ĐỔI & TRIỂN KHAI PILOT (DEPLOYMENT & CHANGE MANAGEMENT RUNBOOK)
 
-Để đảm bảo hệ thống vận hành liên tục (Zero-Downtime) và không xảy ra xung đột khi nâng cấp:
+Để đảm bảo hệ thống Pilot vận hành liên tục (Zero-Downtime), an toàn dữ liệu và các kỹ sư kế thừa có thể triển khai cập nhật một cách nhất quán, quy trình triển khai được chuẩn hóa thành 2 phương thức: **Tự động hóa (Khuyến nghị)** và **Thủ công (Dự phòng)**.
 
-### Bước 1: Phát triển & Kiểm thử tại Local (Máy Mac)
-* Toàn bộ mã nguồn mới hoặc chỉnh sửa tính năng phải được kiểm thử trên máy dev trước.
-* Đảm bảo không sửa đổi cấu trúc kết nối FreeTDS nếu không có thay đổi từ phía SQL Server.
+---
 
-### Bước 2: Đồng bộ mã nguồn lên Server qua SSH/SFTP
-* Sử dụng công cụ đồng bộ an toàn (SFTP / rsync / Git).
-* Sau khi đẩy code lên `/opt/ocr-bill/`, kiểm tra tính toàn vẹn bằng MD5 Checksum:
-  ```bash
-  md5sum /opt/ocr-bill/app_review.py
-  ```
+### 6.1. Kiến trúc Triển khai (Deployment Architecture)
 
-### Bước 3: Nạp cấu hình & Khởi động lại dịch vụ
-* Nếu thay đổi cấu hình Nginx:
-  ```bash
-  sudo nginx -t && sudo systemctl reload nginx
-  ```
-* Nếu thay đổi mã nguồn Python hoặc cấu hình DB (`db_config.json`):
-  ```bash
-  sudo systemctl restart ocr-bill
-  ```
+```
+[Máy Dev / Mac Mini]
+        │
+        ├── 1. Kiểm tra cú pháp (py_compile)
+        ├── 2. Kết nối SSH/SFTP (Port 22, User: msa)
+        │       │
+        │       ▼
+[Server Pilot: 14.161.34.37]
+        ├── Đẩy mã nguồn vào /opt/ocr-bill/
+        ├── Restart dịch vụ ocr-bill.service (Systemd)
+        │       │
+        │       ▼
+[Kiểm thử khói (Smoke Test)]
+        └── HTTP GET http://14.161.34.37:8080/api/stats
+            (Kiểm tra độ trễ phản hồi & kết nối Database)
+```
 
-### Bước 4: Kiểm tra sức khỏe hệ thống (Health Check Validation)
-* Kiểm tra trạng thái service: `sudo systemctl status ocr-bill`
-* Kiểm tra endpoint: `curl -I http://127.0.0.1:8080/api/health`
-* Kiểm tra log nếu có lỗi: `tail -n 50 /var/log/ocr-bill-error.log`
+* **Thông số kết nối Pilot Server**:
+  * **IP / Host**: `14.161.34.37` (Port SSH: `22`)
+  * **Tài khoản**: `msa`
+  * **Thư mục cài đặt**: `/opt/ocr-bill/`
+  * **Dịch vụ Backend**: `ocr-bill.service` (Quản lý bởi `systemd`, chạy Uvicorn trên `127.0.0.1:8000`)
+  * **Reverse Proxy**: Nginx lắng nghe cổng Public `8080` (chuyển tiếp về `127.0.0.1:8000`)
 
-### Bước 5: Chuyển đổi môi trường CSDL (Khi đưa lên Production)
-Khi kết thúc giai đoạn UAT và cần chuyển sang Production:
-1. Mở file `/opt/ocr-bill/db_config.json`.
+---
+
+### 6.2. Triển khai Tự động hóa qua Script `deploy_to_pilot.py` (Khuyến nghị)
+
+Dự án đã tích hợp sẵn script triển khai tự động [deploy_to_pilot.py](file:///Volumes/ExternalSSD/ocr-bill/deploy_to_pilot.py). Kỹ sư chỉ cần chạy một lệnh duy nhất từ máy trạm:
+
+```bash
+# Đứng tại thư mục gốc dự án trên máy Dev
+./venv/bin/python deploy_to_pilot.py
+```
+
+#### Quy trình 5 bước thực thi tự động của Script:
+1. **Bước 1: Pre-flight Syntax Check**:
+   - Sử dụng module `py_compile` để biên dịch thử `app_review.py`, `db.py`, `ocr_engine.py`.
+   - Nếu có lỗi cú pháp (SyntaxError/IndentationError), script lập tức dừng lại, **không đẩy mã lỗi lên server**.
+2. **Bước 2: Differential SFTP Upload**:
+   - Mở kênh SFTP an toàn tới `14.161.34.37:22`.
+   - Tải các tệp mã nguồn mới nhất lên `/opt/ocr-bill/` (ghi nhận kích thước KB từng tệp).
+   - *Lưu ý*: Script **không ghi đè** `db_config.json` hay `freetds.conf` đã cấu hình riêng cho môi trường của máy chủ.
+3. **Bước 3: Graceful Service Restart**:
+   - Thực thi lệnh từ xa: `sudo systemctl restart ocr-bill`.
+   - Kiểm tra ngay trạng thái bằng `sudo systemctl is-active ocr-bill` (phải trả về `active`).
+4. **Bước 4: Automated Smoke Testing & Latency Verification**:
+   - Gửi yêu cầu `GET http://14.161.34.37:8080/api/stats`.
+   - Xác nhận mã phản hồi `HTTP 200 OK`, đo độ trễ mạng (thường < 150ms) và in ra số liệu thống kê hóa đơn thực tế từ CSDL.
+5. **Bước 5: Đồng bộ Phiên bản vào Git**:
+   - Sau khi deploy thành công, kỹ sư thực hiện commit và push lên kho mã nguồn Git chung:
+     ```bash
+     git commit -am "feat/fix: mô tả nội dung cập nhật"
+     git push origin main
+     ```
+
+---
+
+### 6.3. Quy trình Triển khai Thủ công qua Terminal (Dành cho Kỹ sư)
+
+Trong trường hợp cần can thiệp từng file hoặc không có môi trường chạy script Python:
+
+#### 1. Đẩy mã nguồn qua `scp` hoặc `rsync`:
+```bash
+# Đẩy các file mã nguồn cốt lõi
+scp app_review.py db.py ocr_engine.py master_outlets.json msa@14.161.34.37:/opt/ocr-bill/
+```
+
+#### 2. Đăng nhập SSH vào Server kiểm tra toàn vẹn file:
+```bash
+ssh msa@14.161.34.37
+cd /opt/ocr-bill
+
+# Kiểm tra MD5 checksum đối chiếu
+md5sum app_review.py db.py
+```
+
+#### 3. Khởi động lại dịch vụ Backend & Nginx:
+```bash
+# Nạp lại dịch vụ OCR Backend
+sudo systemctl restart ocr-bill
+
+# Kiểm tra trạng thái đang chạy
+sudo systemctl status ocr-bill --no-pager
+
+# (Chỉ khi có sửa đổi cấu hình Nginx)
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+#### 4. Kiểm tra sức khỏe hệ thống (Health Check Validation):
+```bash
+# Kiểm tra API cục bộ trên server
+curl -I http://127.0.0.1:8000/api/health
+curl -s http://127.0.0.1:8000/api/stats | jq .
+
+# Kiểm tra qua cổng Nginx Public 8080
+curl -I http://14.161.34.37:8080/api/health
+```
+
+---
+
+### 6.4. Nguyên tắc Cách ly Cấu hình & Bảo mật (Configuration Safety)
+
+1. **Tuyệt đối không ghi đè `db_config.json`**:
+   - Máy Dev có thể trỏ tới database Dev (`OCRInvoice` tại `45.119.87.247`).
+   - Server Pilot hiện đang trỏ tới database UAT/POC (`CLMHQTEST` tại `115.165.166.208:6868`).
+   - Mọi thay đổi về cấu hình DB trên server phải sửa trực tiếp trên file `/opt/ocr-bill/db_config.json` tại server, không deploy file này từ máy dev.
+2. **Quyền sở hữu file (Permissions)**:
+   - Toàn bộ file trong `/opt/ocr-bill/` thuộc quyền sở hữu của user `msa:msa`:
+     ```bash
+     sudo chown -R msa:msa /opt/ocr-bill/
+     ```
+3. **Thư mục lưu trữ ảnh hóa đơn**:
+   - Ảnh hóa đơn được lưu vào ổ cứng 1TB qua symlink `/opt/ocr-bill/uploads -> /mnt/data/ocr-bill/uploads`.
+   - Tuyệt đối không xóa hoặc thay thế symlink này.
+
+---
+
+### 6.5. Quy trình Rollback & Xử lý Sự cố khẩn cấp (Incident & Rollback Runbook)
+
+Nếu phiên bản mới phát sinh lỗi nghiêm trọng sau khi deploy:
+
+#### 1. Kiểm tra log lỗi thời gian thực:
+```bash
+# Xem log systemd của dịch vụ
+sudo journalctl -u ocr-bill -n 100 -f
+
+# Hoặc xem file log ứng dụng
+tail -n 100 -f /var/log/ocr-bill-error.log
+```
+
+#### 2. Phục hồi nhanh từ bản sao lưu (Rollback trong 30 giây):
+Trước mỗi đợt bảo trì lớn, tạo bản snapshot dự phòng trên server:
+```bash
+# Trên server: Tạo snapshot trước khi deploy
+cp /opt/ocr-bill/app_review.py /opt/ocr-bill/app_review.py.bak_$(date +%Y%m%d_%H%M%S)
+
+# Nếu cần rollback khôi phục bản cũ:
+cp /opt/ocr-bill/app_review.py.bak_<timestamp> /opt/ocr-bill/app_review.py
+sudo systemctl restart ocr-bill
+```
+
+#### 3. Chuyển đổi môi trường CSDL (Khi chính thức Golive Production):
+1. Mở file `/opt/ocr-bill/db_config.json` trên server.
 2. Đổi giá trị `"database": "CLMHQTEST"` thành `"database": "CLMHQ4GIGA"`.
-3. Chạy lệnh: `sudo systemctl restart ocr-bill`.
+3. Khởi động lại dịch vụ: `sudo systemctl restart ocr-bill`.
+4. Gọi `/api/stats` để xác nhận kết nối thành công tới database Production.
+
