@@ -210,10 +210,10 @@ def get_bill_stats():
         cursor.execute("""
         SELECT 
             COUNT(*) as total,
-            SUM(CASE WHEN Status = 'PENDING' THEN 1 ELSE 0 END) as pending,
-            SUM(CASE WHEN Status = 'APPROVED' THEN 1 ELSE 0 END) as approved,
-            SUM(CASE WHEN Status = 'REJECTED' THEN 1 ELSE 0 END) as rejected,
-            SUM(CASE WHEN IsManualEdited = 1 THEN 1 ELSE 0 END) as manual_edited
+            ISNULL(SUM(CASE WHEN Status = 'PENDING' THEN 1 ELSE 0 END), 0) as pending,
+            ISNULL(SUM(CASE WHEN Status = 'APPROVED' THEN 1 ELSE 0 END), 0) as approved,
+            ISNULL(SUM(CASE WHEN Status = 'REJECTED' THEN 1 ELSE 0 END), 0) as rejected,
+            ISNULL(SUM(CASE WHEN IsManualEdited = 1 THEN 1 ELSE 0 END), 0) as manual_edited
         FROM OcrBills
         """)
         row = cursor.fetchone()
