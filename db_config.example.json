@@ -1,8 +1,29 @@
 {
-  "server": "CLMHQ4GIGA",
-  "host": "115.165.166.208",
-  "port": 6868,
-  "database": "CLMHQTEST",
-  "user": "YOUR_DB_USER",
-  "password": "YOUR_DB_PASSWORD"
+  "current_environment": "dev",
+  "environments": {
+    "dev": {
+      "server": "CLMHQ4GIGA",
+      "host": "127.0.0.1",
+      "port": 1433,
+      "database": "DEV_DEMO_DB",
+      "user": "YOUR_DEV_USER",
+      "password": "YOUR_DEV_PASSWORD"
+    },
+    "pilot": {
+      "server": "CLMHQ4GIGA",
+      "host": "115.165.166.208",
+      "port": 6868,
+      "database": "CLMHQTEST",
+      "user": "crmapp1",
+      "password": "YOUR_PILOT_PASSWORD"
+    },
+    "prod": {
+      "server": "CLMHQ4GIGA",
+      "host": "115.165.166.208",
+      "port": 6868,
+      "database": "CLMHQ4GIGA",
+      "user": "crmapp1",
+      "password": "YOUR_PROD_PASSWORD"
+    }
+  }
 }

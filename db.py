@@ -19,11 +19,27 @@ DB_CONFIG_PATH = BASE_DIR / "db_config.json"
 os.environ["FREETDSCONF"] = str(FREETDS_CONF_PATH)
 
 
-def load_db_config():
+def load_db_config() -> dict:
     if not DB_CONFIG_PATH.exists():
         raise FileNotFoundError(f"Không tìm thấy file cấu hình: {DB_CONFIG_PATH}")
     with open(DB_CONFIG_PATH, "r", encoding="utf-8") as f:
-        return json.load(f)
+        raw = json.load(f)
+    
+    # Nếu file cấu hình có chứa các profile môi trường (dev, pilot, prod)
+    if "environments" in raw:
+        # Ưu tiên biến môi trường hệ thống OCR_ENV, nếu không thì lấy current_environment trong file
+        env_name = os.environ.get("OCR_ENV") or raw.get("current_environment") or "dev"
+        env_name = env_name.lower().strip()
+        envs = raw["environments"]
+        if env_name not in envs:
+            raise ValueError(f"Môi trường '{env_name}' không tồn tại trong db_config.json. Các môi trường hợp lệ: {list(envs.keys())}")
+        active_cfg = dict(envs[env_name])
+        active_cfg["_active_env"] = env_name
+        return active_cfg
+    
+    # Cấu hình phẳng truyền thống
+    raw["_active_env"] = "custom"
+    return raw
 
 
 def get_connection():
@@ -33,6 +49,7 @@ def get_connection():
         user=cfg["user"],
         password=cfg["password"],
         database=cfg["database"],
+        port=cfg.get("port", 1433),
         autocommit=False,
         timeout=10,
     )
