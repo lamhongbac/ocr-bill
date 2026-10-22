@@ -172,26 +172,37 @@ def seed_from_csv(csv_path=None):
             outlet_raw = str(row["raw_outlet"]).strip() if pd.notna(row.get("raw_outlet")) else ""
             raw_out = str(row["raw_output"]).strip() if pd.notna(row.get("raw_output")) else ""
 
-            # Khởi tạo giá trị Final mặc định bằng giá trị OCR gợi ý
+            # Tính hash SHA-256 nếu có file ảnh
+            file_hash = None
+            img_file = BASE_DIR / "TEST_IMAGES" / fname
+            if not img_file.exists():
+                img_file = BASE_DIR / "uploads" / fname
+            if img_file.exists():
+                import hashlib
+                with open(img_file, "rb") as f_hash:
+                    file_hash = hashlib.sha256(f_hash.read()).hexdigest()
+
+            now = datetime.now()
             cursor.execute("""
             INSERT INTO OcrBills (
                 Filename, ImagePath, Status,
                 OcrBrand, OcrOutletRaw, OcrOutletNumber, OcrOutletName, OcrMatchScore,
                 OcrBillNumber, OcrDateTime, OcrTotal, OcrIsValid, OcrLatency, OcrRawOutput,
                 FinalOutletNumber, FinalOutletName, FinalBillNumber, FinalDateTime, FinalTotal,
-                IsManualEdited
+                IsManualEdited, FileHash, CreatedAt, UpdatedAt
             ) VALUES (
                 %s, %s, 'PENDING',
                 %s, %s, %s, %s, %s,
                 %s, %s, %s, %s, %s, %s,
                 %s, %s, %s, %s, %s,
-                0
+                0, %s, %s, %s
             )
             """, (
                 fname, f"TEST_IMAGES/{fname}",
                 brand, outlet_raw, out_num, out_name, score,
                 bill_num, dt_val, total_val, is_valid, lat, raw_out,
-                out_num, out_name, bill_num, dt_val, total_val
+                out_num, out_name, bill_num, dt_val, total_val,
+                file_hash, now, now
             ))
             inserted += 1
 

@@ -432,37 +432,57 @@ def sync_outlets_from_db():
         raise HTTPException(status_code=500, detail=f"Lỗi đồng bộ danh mục cửa hàng: {str(e)}")
 
 
+CACHE_DIR = UPLOAD_DIR / ".cache"
+CACHE_DIR.mkdir(parents=True, exist_ok=True)
+
+
 @app.get("/api/images/{filename:path}")
 def get_image(filename: str):
     clean_name = os.path.basename(filename)
+    if clean_name.startswith("._"):
+        clean_name = clean_name[2:]
+
     # Tìm trong uploads trước, rồi đến TEST_IMAGES
     img_path = UPLOAD_DIR / clean_name
     if not img_path.exists():
         img_path = IMAGE_DIR / clean_name
     if not img_path.exists():
+        # Fallback tìm kiếm theo stem nếu đổi đuôi mở rộng
+        stem = Path(clean_name).stem
+        for alt_ext in (".png", ".jpg", ".jpeg", ".webp", ".bmp"):
+            for folder in (UPLOAD_DIR, IMAGE_DIR):
+                cand = folder / f"{stem}{alt_ext}"
+                if cand.exists():
+                    img_path = cand
+                    break
+            if img_path and img_path.exists():
+                break
+
+    if not img_path or not img_path.exists():
         raise HTTPException(status_code=404, detail="Không tìm thấy file ảnh")
-    media_type = "image/jpeg"
-    lower_name = clean_name.lower()
-    if lower_name.endswith(".png"):
-        media_type = "image/png"
-    elif lower_name.endswith(".bmp"):
-        media_type = "image/bmp"
-    elif lower_name.endswith(".webp"):
-        media_type = "image/webp"
+
     try:
         with Image.open(img_path) as im:
-            fmt = (im.format or "").lower()
-            if fmt == "bmp":
-                media_type = "image/bmp"
-            elif fmt == "png":
-                media_type = "image/png"
-            elif fmt in ("jpeg", "jpg"):
-                media_type = "image/jpeg"
-            elif fmt == "webp":
-                media_type = "image/webp"
+            fmt = (im.format or "").upper()
+            # Trình duyệt web hiện đại (Chrome/Safari) KHÔNG hỗ trợ hiển thị định dạng BMP thuần trong thẻ <img>.
+            # GigaMall POS xuất ảnh định dạng BMP (dù đặt tên là .png).
+            # Tự động convert BMP sang JPEG chất lượng cao và cache lại để hiển thị tức thì.
+            if fmt == "BMP":
+                CACHE_DIR.mkdir(parents=True, exist_ok=True)
+                cached_jpg = CACHE_DIR / f"{Path(clean_name).stem}_bmp_converted.jpg"
+                if not cached_jpg.exists() or cached_jpg.stat().st_mtime < img_path.stat().st_mtime:
+                    im.convert("RGB").save(cached_jpg, format="JPEG", quality=90)
+                return FileResponse(cached_jpg, media_type="image/jpeg")
+            elif fmt == "PNG":
+                return FileResponse(img_path, media_type="image/png")
+            elif fmt in ("JPEG", "JPG"):
+                return FileResponse(img_path, media_type="image/jpeg")
+            elif fmt == "WEBP":
+                return FileResponse(img_path, media_type="image/webp")
     except Exception:
         pass
-    return FileResponse(img_path, media_type=media_type)
+
+    return FileResponse(img_path, media_type="image/jpeg")
 
 
 @app.post("/api/v1/bills/upload")
