@@ -1379,6 +1379,100 @@ main { flex: 1; display: flex; overflow: hidden; position: relative; }
 }
 .diff-alert.active { display: flex; }
 
+/* Inline Save Success Banner */
+.save-banner {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.18) 0%, rgba(5, 150, 105, 0.1) 100%);
+  border: 1px solid rgba(16, 185, 129, 0.45);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 12px;
+  color: #6ee7b7;
+  display: none;
+  align-items: center;
+  gap: 10px;
+  animation: bannerFadeIn 0.3s ease-out;
+}
+.save-banner.active { display: flex; }
+@keyframes bannerFadeIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Toast Notifications Container (Modern floating alerts) */
+.toast-container {
+  position: fixed;
+  top: 72px;
+  right: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 9999;
+  pointer-events: none;
+}
+.toast {
+  pointer-events: auto;
+  min-width: 320px;
+  max-width: 440px;
+  padding: 14px 18px;
+  border-radius: 10px;
+  background: rgba(17, 24, 39, 0.96);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 15px rgba(16, 185, 129, 0.15);
+  color: var(--text-main);
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  transform: translateX(120%);
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
+  opacity: 0;
+}
+.toast.show {
+  transform: translateX(0);
+  opacity: 1;
+}
+.toast-success {
+  border-color: rgba(16, 185, 129, 0.5);
+  background: linear-gradient(135deg, rgba(6, 78, 59, 0.95) 0%, rgba(17, 24, 39, 0.98) 60%);
+}
+.toast-info {
+  border-color: rgba(56, 189, 248, 0.5);
+  background: linear-gradient(135deg, rgba(12, 74, 110, 0.95) 0%, rgba(17, 24, 39, 0.98) 60%);
+}
+.toast-warning {
+  border-color: rgba(245, 158, 11, 0.5);
+  background: linear-gradient(135deg, rgba(120, 53, 15, 0.95) 0%, rgba(17, 24, 39, 0.98) 60%);
+}
+.toast-error {
+  border-color: rgba(239, 68, 68, 0.5);
+  background: linear-gradient(135deg, rgba(127, 29, 29, 0.95) 0%, rgba(17, 24, 39, 0.98) 60%);
+}
+.toast-icon {
+  font-size: 20px;
+  line-height: 1;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.toast-content { flex: 1; }
+.toast-title { font-size: 13px; font-weight: 700; color: #fff; margin-bottom: 3px; }
+.toast-msg { font-size: 12px; color: #cbd5e1; line-height: 1.4; }
+.toast-close {
+  background: none; border: none; color: #94a3b8; font-size: 16px; cursor: pointer; padding: 0;
+  line-height: 1; margin-left: 6px; transition: color 0.15s;
+}
+.toast-close:hover { color: #fff; }
+
+@keyframes auditPulse {
+  0% { background: rgba(16, 185, 129, 0.35); }
+  50% { background: rgba(16, 185, 129, 0.15); }
+  100% { background: transparent; }
+}
+.audit-item.highlight-new {
+  animation: auditPulse 2.5s ease-out;
+  border-left: 3px solid var(--success);
+  padding-left: 6px;
+}
+
 /* Bottom Action Bar */
 .action-bar {
   padding: 16px 24px; border-top: 1px solid var(--border); background: var(--bg-surface);
@@ -1394,6 +1488,8 @@ main { flex: 1; display: flex; overflow: hidden; position: relative; }
 .btn-reject:hover { background: #dc2626; }
 .btn-save { background: var(--primary); color: #fff; }
 .btn-save:hover { background: var(--primary-hover); }
+.btn-save.saving { background: #334155 !important; color: #94a3b8 !important; cursor: wait !important; pointer-events: none; }
+.btn-save.saved { background: #059669 !important; color: #fff !important; box-shadow: 0 0 15px rgba(16, 185, 129, 0.4); }
 .btn-sec { background: var(--bg-card); color: var(--text-main); border: 1px solid var(--border); }
 .btn-sec:hover { background: var(--bg-card-hover); }
 
@@ -1579,6 +1675,15 @@ tr:hover td { background: rgba(255,255,255,0.02); cursor: pointer; }
           ⚠️ <span>Admin đã sửa số tiền khác kết quả AI đọc ban đầu!</span>
         </div>
 
+        <div class="save-banner" id="save-banner">
+          <span style="font-size: 16px;">✅</span>
+          <div style="flex: 1;">
+            <b id="save-banner-title" style="color: #6ee7b7;">Đã lưu thay đổi thành công!</b>
+            <div id="save-banner-sub" style="font-size: 11px; opacity: 0.9; margin-top: 1px;">Dữ liệu và vết kiểm toán đã được cập nhật vào CSDL.</div>
+          </div>
+          <button id="btn-close-save-banner" style="background:none; border:none; color:inherit; font-size:16px; cursor:pointer; opacity:0.7;" title="Đóng thông báo">✕</button>
+        </div>
+
         <div class="form-group">
           <label class="form-label">
             <span>Cửa hàng / Gian hàng (Outlet)</span>
@@ -1745,6 +1850,9 @@ tr:hover td { background: rgba(255,255,255,0.02); cursor: pointer; }
     </div>
   </section>
 </main>
+
+<!-- Toast Container (Modern floating alerts) -->
+<div class="toast-container" id="toast-container"></div>
 
 <!-- Reject Modal (Requirement 2) -->
 <div class="modal-overlay" id="modal-reject">
@@ -2231,6 +2339,9 @@ function showBill(idx) {
     lockedMsg.style.display = "none";
   }
 
+  const saveBanner = document.getElementById("save-banner");
+  if (saveBanner) saveBanner.classList.remove("active");
+
   checkDiff(b);
   loadBillAuditLogs(b.BillId);
 }
@@ -2248,7 +2359,45 @@ document.getElementById("inp-total").addEventListener("input", e => {
   if (allBills[currentIdx]) checkDiff(allBills[currentIdx]);
 });
 
-async function loadBillAuditLogs(billId) {
+function showToast(type, title, message, durationMs = 4500) {
+  const container = document.getElementById("toast-container");
+  if (!container) return;
+
+  const icons = {
+    success: "✅",
+    info: "ℹ️",
+    warning: "⚠️",
+    error: "❌"
+  };
+
+  const toast = document.createElement("div");
+  toast.className = `toast toast-${type}`;
+  toast.innerHTML = `
+    <span class="toast-icon">${icons[type] || "ℹ️"}</span>
+    <div class="toast-content">
+      <div class="toast-title">${title}</div>
+      <div class="toast-msg">${message}</div>
+    </div>
+    <button class="toast-close" title="Đóng">✕</button>
+  `;
+
+  const closeBtn = toast.querySelector(".toast-close");
+  const removeToast = () => {
+    toast.classList.remove("show");
+    setTimeout(() => toast.remove(), 300);
+  };
+
+  closeBtn.addEventListener("click", removeToast);
+  container.appendChild(toast);
+
+  requestAnimationFrame(() => toast.classList.add("show"));
+
+  if (durationMs > 0) {
+    setTimeout(removeToast, durationMs);
+  }
+}
+
+async function loadBillAuditLogs(billId, highlightFirst = false) {
   try {
     const res = await fetch(`/api/bills/${billId}`);
     const data = await res.json();
@@ -2257,8 +2406,8 @@ async function loadBillAuditLogs(billId) {
       list.innerHTML = `<div style="color: var(--text-dim); font-size: 11px;">Chưa có lịch sử thay đổi.</div>`;
       return;
     }
-    list.innerHTML = data.audit_logs.map(l => `
-      <div class="audit-item">
+    list.innerHTML = data.audit_logs.map((l, i) => `
+      <div class="audit-item ${highlightFirst && i === 0 ? 'highlight-new' : ''}">
         <span class="audit-time">${l.CreatedAt}</span>
         <span class="audit-desc"><b>${l.Actor}</b> [${l.Action}] ${l.FieldName}: <s>${l.OldValue || "null"}</s> ➔ <span style="color:var(--success)">${l.NewValue}</span> ${l.Note ? `(${l.Note})` : ''}</span>
       </div>
@@ -2296,7 +2445,7 @@ selRejectReason.addEventListener("change", e => {
 document.getElementById("btn-confirm-reject").addEventListener("click", async () => {
   const customReason = txtRejectReason.value.trim();
   if (!customReason) {
-    alert("Vui lòng nhập nội dung lý do từ chối vào ô văn bản!");
+    showToast("warning", "Thiếu lý do", "Vui lòng nhập nội dung lý do từ chối vào ô văn bản!");
     txtRejectReason.focus();
     return;
   }
@@ -2327,64 +2476,147 @@ async function submitReview(status, rejectReason = null) {
     b.Status = status;
     showBill(currentIdx);
     await loadStats();
+    if (status === "APPROVED") {
+      showToast("success", `Đã phê duyệt Bill #${b.BillId}`, `Hóa đơn đã được chốt dữ liệu bởi <b>${currentUser}</b>.`);
+    } else {
+      showToast("warning", `Đã từ chối Bill #${b.BillId}`, `Lý do: <i>${rejectReason}</i>`);
+    }
     // Auto advance to next bill
     if (currentIdx < allBills.length - 1) {
-      showBill(currentIdx + 1);
+      setTimeout(() => showBill(currentIdx + 1), 600);
     }
+  } else {
+    showToast("error", "Lỗi phê duyệt", "Không thể cập nhật trạng thái hóa đơn.");
   }
 }
 
 document.getElementById("btn-save").addEventListener("click", () => saveEdits(true));
 
+const btnCloseSaveBanner = document.getElementById("btn-close-save-banner");
+if (btnCloseSaveBanner) {
+  btnCloseSaveBanner.addEventListener("click", () => {
+    const saveBanner = document.getElementById("save-banner");
+    if (saveBanner) saveBanner.classList.remove("active");
+  });
+}
+
 async function saveEdits(showPrompt = true) {
   const b = allBills[currentIdx];
   if (!b) return;
 
-  if (b.Status === "APPROVED") {
-    alert("⚠️ Hóa đơn này đã được phê duyệt và khóa chốt dữ liệu. Không thể sửa!");
+  if (b.Status === "APPROVED" || b.Status === "REJECTED") {
+    showToast("warning", "Không thể chỉnh sửa", `Hóa đơn này đã ở trạng thái ${b.Status} và bị khóa dữ liệu.`);
     return;
   }
 
-  const total = parseInt(document.getElementById("inp-total").value.replace(/[^0-9]/g, "")) || 0;
-  const outletName = document.getElementById("inp-outlet-name").value.trim();
-  const billNo = document.getElementById("inp-billno").value.trim();
-  const dt = document.getElementById("inp-datetime").value.trim();
-  const note = document.getElementById("inp-note").value.trim();
+  const btnSave = document.getElementById("btn-save");
+  const originalBtnHtml = btnSave ? btnSave.innerHTML : "💾 Lưu sửa đổi";
 
-  // Find outlet number if matching master outlets
-  const matched = masterOutlets.find(o => o.outlet_name.toLowerCase() === outletName.toLowerCase());
-  const outletNum = matched ? matched.outlet_number : b.FinalOutletNumber;
-  const currentUser = getCurrentUser();
+  if (btnSave && showPrompt) {
+    btnSave.classList.add("saving");
+    btnSave.innerHTML = `⏳ Đang lưu CSDL...`;
+  }
 
-  const payload = {
-    final_outlet_name: outletName,
-    final_outlet_number: outletNum,
-    final_total: total,
-    final_bill_number: billNo,
-    final_datetime: dt,
-    actor: currentUser,
-    note: note
-  };
+  try {
+    const total = parseInt(document.getElementById("inp-total").value.replace(/[^0-9]/g, "")) || 0;
+    const outletName = document.getElementById("inp-outlet-name").value.trim();
+    const billNo = document.getElementById("inp-billno").value.trim();
+    const dt = document.getElementById("inp-datetime").value.trim();
+    const note = document.getElementById("inp-note").value.trim();
 
-  const res = await fetch(`/api/bills/${b.BillId}/edit`, {
-    method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Actor": currentUser
-    },
-    body: JSON.stringify(payload)
-  });
+    // Find outlet number if matching master outlets
+    const matched = masterOutlets.find(o => o.outlet_name.toLowerCase() === outletName.toLowerCase());
+    const outletNum = matched ? matched.outlet_number : b.FinalOutletNumber;
+    const currentUser = getCurrentUser();
 
-  if (res.ok) {
-    b.FinalOutletName = outletName;
-    b.FinalTotal = total;
-    b.FinalBillNumber = billNo;
-    b.FinalDateTime = dt;
-    if (showPrompt) {
-      alert("✅ Đã lưu thay đổi vào CSDL và ghi nhận vết kiểm toán!");
-      loadBillAuditLogs(b.BillId);
-      loadStats();
+    const payload = {
+      final_outlet_name: outletName,
+      final_outlet_number: outletNum,
+      final_total: total,
+      final_bill_number: billNo,
+      final_datetime: dt,
+      actor: currentUser,
+      note: note
+    };
+
+    const res = await fetch(`/api/bills/${b.BillId}/edit`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Actor": currentUser
+      },
+      body: JSON.stringify(payload)
+    });
+
+    const result = await res.json().catch(() => ({}));
+
+    if (res.ok) {
+      b.FinalOutletName = outletName;
+      b.FinalTotal = total;
+      b.FinalBillNumber = billNo;
+      b.FinalDateTime = dt;
+      checkDiff(b);
+
+      const numChanged = result.fields_changed !== undefined ? result.fields_changed : 1;
+
+      if (showPrompt) {
+        if (btnSave) {
+          btnSave.classList.remove("saving");
+          btnSave.classList.add("saved");
+          btnSave.innerHTML = `✅ Đã lưu xong!`;
+          setTimeout(() => {
+            btnSave.classList.remove("saved");
+            btnSave.innerHTML = originalBtnHtml;
+          }, 2000);
+        }
+
+        // Show inline banner in form
+        const saveBanner = document.getElementById("save-banner");
+        const saveBannerTitle = document.getElementById("save-banner-title");
+        const saveBannerSub = document.getElementById("save-banner-sub");
+        if (saveBanner && saveBannerTitle && saveBannerSub) {
+          const nowStr = new Date().toLocaleTimeString("vi-VN");
+          if (numChanged > 0) {
+            saveBannerTitle.textContent = `Đã lưu thành công ${numChanged} trường thay đổi!`;
+            saveBannerSub.textContent = `Cập nhật lúc ${nowStr} bởi ${currentUser}. Đã ghi nhận vết kiểm toán.`;
+          } else {
+            saveBannerTitle.textContent = `Không có thay đổi nào`;
+            saveBannerSub.textContent = `Dữ liệu hiện tại khớp 100% với CSDL (lúc ${nowStr}).`;
+          }
+          saveBanner.classList.add("active");
+        }
+
+        // Show floating Toast
+        if (numChanged > 0) {
+          showToast(
+            "success",
+            `Lưu thành công Bill #${b.BillId}`,
+            `Đã cập nhật <b>${numChanged} trường</b> vào CSDL lúc ${new Date().toLocaleTimeString('vi-VN')} và ghi nhận kiểm toán bởi <b>${currentUser}</b>.`
+          );
+        } else {
+          showToast(
+            "info",
+            `Bill #${b.BillId} không đổi`,
+            `Các giá trị nhập liệu hiện tại trùng khớp hoàn toàn với dữ liệu CSDL.`
+          );
+        }
+
+        await loadBillAuditLogs(b.BillId, true);
+        loadStats();
+      }
+    } else {
+      if (btnSave) {
+        btnSave.classList.remove("saving");
+        btnSave.innerHTML = originalBtnHtml;
+      }
+      showToast("error", "Lỗi lưu dữ liệu", result.detail || "Không thể lưu thay đổi vào máy chủ");
     }
+  } catch (err) {
+    if (btnSave) {
+      btnSave.classList.remove("saving");
+      btnSave.innerHTML = originalBtnHtml;
+    }
+    showToast("error", "Lỗi kết nối", err.message || "Gặp lỗi kết nối khi lưu dữ liệu");
   }
 }
 
@@ -2506,6 +2738,12 @@ canvasWrap.addEventListener("wheel", e => {
 
 // Keyboard shortcuts
 window.addEventListener("keydown", e => {
+  // Support Ctrl+S / Cmd+S anywhere, including inside input fields
+  if ((e.ctrlKey || e.metaKey) && (e.key === "s" || e.key === "S")) {
+    e.preventDefault();
+    document.getElementById("btn-save").click();
+    return;
+  }
   if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT" || e.target.tagName === "TEXTAREA") return;
   if (e.key === "ArrowLeft") { document.getElementById("btn-prev").click(); }
   if (e.key === "ArrowRight") { document.getElementById("btn-next").click(); }
