@@ -1324,8 +1324,26 @@ main { flex: 1; display: flex; overflow: hidden; position: relative; }
   background: rgba(255, 255, 255, 0.03); color: #94a3b8; border-color: rgba(255, 255, 255, 0.08); cursor: not-allowed;
 }
 .batch-pagination {
-  padding: 10px 24px; border-top: 1px solid var(--border); display: flex; justify-content: space-between;
-  align-items: center; font-size: 12px; color: var(--text-muted); background: var(--bg-surface);
+  flex-shrink: 0;
+  padding: 12px 24px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  color: var(--text-muted);
+  background: var(--bg-surface);
+  box-shadow: 0 -4px 14px rgba(0, 0, 0, 0.35);
+  z-index: 10;
+}
+.batch-pagination .btn {
+  padding: 5px 12px;
+  font-size: 12px;
+}
+.batch-pagination .btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed !important;
+  pointer-events: none;
 }
 
 .panel-head {
@@ -1393,10 +1411,13 @@ main { flex: 1; display: flex; overflow: hidden; position: relative; }
 .audit-desc b { color: var(--accent); }
 
 /* Table View (Batch Mode) */
-#view-batch { width: 100%; height: 100%; flex-direction: column; overflow: hidden; }
+#content-batch.active { flex-direction: column; overflow: hidden; }
+#view-batch {
+  width: 100%; height: 100%; display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden;
+}
 .batch-toolbar {
   padding: 14px 24px; border-bottom: 1px solid var(--border); background: var(--bg-surface);
-  display: flex; justify-content: space-between; align-items: center; gap: 16px;
+  display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-shrink: 0;
 }
 .filter-tabs { display: flex; gap: 6px; }
 .filter-btn {
@@ -1406,7 +1427,7 @@ main { flex: 1; display: flex; overflow: hidden; position: relative; }
 .filter-btn:hover { color: var(--text-main); }
 .filter-btn.active { background: var(--accent); color: #000; border-color: var(--accent); }
 
-.table-wrap { flex: 1; overflow: auto; padding: 16px 24px; }
+.table-wrap { flex: 1; min-height: 0; overflow-y: auto; overflow-x: auto; padding: 12px 24px; }
 table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; }
 th {
   background: var(--bg-surface); color: var(--text-muted); text-align: left; padding: 10px 14px;
@@ -1417,10 +1438,13 @@ tr:hover td { background: rgba(255,255,255,0.02); cursor: pointer; }
 .thumb { width: 44px; height: 44px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border); }
 
 /* Auditor View */
-#view-audit { width: 100%; height: 100%; flex-direction: column; overflow: hidden; }
+#content-audit.active { flex-direction: column; overflow: hidden; }
+#view-audit {
+  width: 100%; height: 100%; display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden;
+}
 .audit-toolbar {
   padding: 14px 24px; border-bottom: 1px solid var(--border); background: var(--bg-surface);
-  display: flex; justify-content: space-between; align-items: center;
+  display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;
 }
 .tag-action { padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 700; font-family: var(--font-mono); }
 .tag-action.UPDATE_FIELD { background: rgba(168, 85, 247, 0.2); color: #c084fc; }
@@ -1671,12 +1695,14 @@ tr:hover td { background: rgba(255,255,255,0.02); cursor: pointer; }
       </div>
 
       <div class="batch-pagination">
-        <div>Hiển thị <span id="page-start">0</span> - <span id="page-end">0</span> trên tổng số <b id="page-total" style="color:var(--text-main);">0</b> hóa đơn</div>
-        <div style="display: flex; gap: 8px; align-items: center;">
-          <button class="btn btn-sec" id="btn-page-prev" style="padding: 4px 10px; font-size: 12px;">◀ Trang trước</button>
-          <span>Trang <b id="page-current" style="color:var(--accent);">1</b> / <span id="page-last">1</span></span>
-          <button class="btn btn-sec" id="btn-page-next" style="padding: 4px 10px; font-size: 12px;">Trang sau ▶</button>
-          <select id="sel-page-limit" class="input-box" style="width: auto; padding: 4px 8px; font-size: 12px; margin-left: 8px;">
+        <div>Hiển thị <span id="page-start" style="color:var(--accent); font-weight:700;">0</span> - <span id="page-end" style="color:var(--accent); font-weight:700;">0</span> trên tổng số <b id="page-total" style="color:var(--text-main);">0</b> hóa đơn</div>
+        <div style="display: flex; gap: 6px; align-items: center;">
+          <button class="btn btn-sec" id="btn-page-first" title="Về trang đầu">⏮ Đầu</button>
+          <button class="btn btn-sec" id="btn-page-prev">◀ Trước</button>
+          <span style="margin: 0 4px;">Trang <b id="page-current" style="color:var(--accent); font-size:14px;">1</b> / <span id="page-last">1</span></span>
+          <button class="btn btn-sec" id="btn-page-next">Sau ▶</button>
+          <button class="btn btn-sec" id="btn-page-last-btn" title="Đến trang cuối">Cuối ⏭</button>
+          <select id="sel-page-limit" class="input-box" style="width: auto; padding: 4px 8px; font-size: 12px; margin-left: 10px;">
             <option value="25">25 / trang</option>
             <option value="50" selected>50 / trang</option>
             <option value="100">100 / trang</option>
@@ -2026,14 +2052,27 @@ function updatePaginationUI() {
   const start = total === 0 ? 0 : (currentPage - 1) * currentLimit + 1;
   const end = Math.min(currentPage * currentLimit, total);
 
-  document.getElementById("page-start").textContent = start;
-  document.getElementById("page-end").textContent = end;
-  document.getElementById("page-total").textContent = total;
-  document.getElementById("page-current").textContent = currentPage;
-  document.getElementById("page-last").textContent = lastPage;
+  const elStart = document.getElementById("page-start");
+  const elEnd = document.getElementById("page-end");
+  const elTotal = document.getElementById("page-total");
+  const elCurrent = document.getElementById("page-current");
+  const elLast = document.getElementById("page-last");
 
-  document.getElementById("btn-page-prev").disabled = (currentPage <= 1);
-  document.getElementById("btn-page-next").disabled = (currentPage >= lastPage);
+  if (elStart) elStart.textContent = start;
+  if (elEnd) elEnd.textContent = end;
+  if (elTotal) elTotal.textContent = total;
+  if (elCurrent) elCurrent.textContent = currentPage;
+  if (elLast) elLast.textContent = lastPage;
+
+  const btnFirst = document.getElementById("btn-page-first");
+  const btnPrev = document.getElementById("btn-page-prev");
+  const btnNext = document.getElementById("btn-page-next");
+  const btnLast = document.getElementById("btn-page-last-btn");
+
+  if (btnFirst) btnFirst.disabled = (currentPage <= 1);
+  if (btnPrev) btnPrev.disabled = (currentPage <= 1);
+  if (btnNext) btnNext.disabled = (currentPage >= lastPage);
+  if (btnLast) btnLast.disabled = (currentPage >= lastPage);
 }
 
 function setupFiltersAndListeners() {
@@ -2080,20 +2119,47 @@ function setupFiltersAndListeners() {
   });
 
   // Pagination buttons
-  document.getElementById("btn-page-prev").addEventListener("click", () => {
-    if (currentPage > 1) {
-      currentPage--;
-      loadBills();
-    }
-  });
+  const btnFirst = document.getElementById("btn-page-first");
+  if (btnFirst) {
+    btnFirst.addEventListener("click", () => {
+      if (currentPage > 1) {
+        currentPage = 1;
+        loadBills();
+      }
+    });
+  }
 
-  document.getElementById("btn-page-next").addEventListener("click", () => {
-    const lastPage = Math.max(1, Math.ceil(totalBillsCount / currentLimit));
-    if (currentPage < lastPage) {
-      currentPage++;
-      loadBills();
-    }
-  });
+  const btnPrev = document.getElementById("btn-page-prev");
+  if (btnPrev) {
+    btnPrev.addEventListener("click", () => {
+      if (currentPage > 1) {
+        currentPage--;
+        loadBills();
+      }
+    });
+  }
+
+  const btnNext = document.getElementById("btn-page-next");
+  if (btnNext) {
+    btnNext.addEventListener("click", () => {
+      const lastPage = Math.max(1, Math.ceil(totalBillsCount / currentLimit));
+      if (currentPage < lastPage) {
+        currentPage++;
+        loadBills();
+      }
+    });
+  }
+
+  const btnLast = document.getElementById("btn-page-last-btn");
+  if (btnLast) {
+    btnLast.addEventListener("click", () => {
+      const lastPage = Math.max(1, Math.ceil(totalBillsCount / currentLimit));
+      if (currentPage < lastPage) {
+        currentPage = lastPage;
+        loadBills();
+      }
+    });
+  }
 
   document.getElementById("sel-page-limit").addEventListener("change", e => {
     currentLimit = parseInt(e.target.value, 10) || 50;
@@ -2459,7 +2525,10 @@ document.querySelectorAll(".nav-tab").forEach(tab => {
     tab.classList.add("active");
     const target = tab.dataset.tab;
     document.getElementById(`content-${target}`).classList.add("active");
-    if (target === "batch") renderBatchTable();
+    if (target === "batch") {
+      renderBatchTable();
+      updatePaginationUI();
+    }
     if (target === "audit") renderGlobalAudit();
   });
 });
