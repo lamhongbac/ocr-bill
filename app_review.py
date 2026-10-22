@@ -98,6 +98,24 @@ def _get_duplicate_note_and_action(is_duplicate: bool, dup_action: str, duplicat
     return f"[TRÙNG LẶP Bill #{duplicate_bill['BillId']}] {note or ''}".strip(), "WARNED"
 
 
+def _insert_bill_atomic(bill_record: dict, save_path: Path) -> int:
+    """
+    Đảm bảo tính nguyên tử (Atomicity) tuyệt đối giữa việc ghi tệp vào đĩa cứng và lưu bản ghi vào CSDL:
+    - Nếu lưu CSDL thành công: Trả về BillId vừa tạo.
+    - Nếu lưu CSDL gặp lỗi (mất kết nối, lỗi ràng buộc): Tự động xóa tệp ảnh vừa ghi trên đĩa (Rollback)
+      để không bao giờ để lại tệp rác mồ côi hoặc không khớp giữa đĩa và CSDL.
+    """
+    try:
+        return db.insert_ocr_bill(bill_record)
+    except Exception as e:
+        if save_path and isinstance(save_path, Path) and save_path.exists():
+            try:
+                save_path.unlink()
+            except Exception:
+                pass
+        raise HTTPException(status_code=500, detail=f"Lỗi ghi nhận CSDL MS-SQL: {str(e)}")
+
+
 def _build_duplicate_rejection_response(
     saved_filename: str,
     file_hash: str,
@@ -129,7 +147,7 @@ def _build_duplicate_rejection_response(
         "reviewed_by": actor,
         "reviewed_at": datetime.now()
     }
-    bill_id = db.insert_ocr_bill(bill_record)
+    bill_id = _insert_bill_atomic(bill_record, UPLOAD_DIR / saved_filename)
     db.insert_ocr_audit_log(
         bill_id=bill_id,
         actor=actor,
@@ -556,7 +574,7 @@ async def upload_bill_multipart(
                 "actor": actor,
                 "note": final_note,
             }
-            bill_id = db.insert_ocr_bill(bill_record)
+            bill_id = _insert_bill_atomic(bill_record, save_path)
             save_latency = round(time.time() - t0, 3)
             return {
                 "success": True,
@@ -602,7 +620,7 @@ async def upload_bill_multipart(
                 "actor": actor,
                 "note": final_note,
             }
-            bill_id = db.insert_ocr_bill(bill_record)
+            bill_id = _insert_bill_atomic(bill_record, save_path)
             background_tasks.add_task(run_background_ocr, bill_id, save_path)
             save_latency = round(time.time() - t0, 3)
 
@@ -668,7 +686,7 @@ async def upload_bill_multipart(
                 "actor": actor,
                 "note": final_note,
             }
-            bill_id = db.insert_ocr_bill(bill_record)
+            bill_id = _insert_bill_atomic(bill_record, save_path)
             save_latency = round(time.time() - t0, 3)
 
             return {
@@ -770,7 +788,7 @@ def upload_bill_base64(
                 "actor": req.actor,
                 "note": final_note,
             }
-            bill_id = db.insert_ocr_bill(bill_record)
+            bill_id = _insert_bill_atomic(bill_record, save_path)
             save_latency = round(time.time() - t0, 3)
             return {
                 "success": True,
@@ -815,7 +833,7 @@ def upload_bill_base64(
                 "actor": req.actor,
                 "note": final_note,
             }
-            bill_id = db.insert_ocr_bill(bill_record)
+            bill_id = _insert_bill_atomic(bill_record, save_path)
             background_tasks.add_task(run_background_ocr, bill_id, save_path)
             save_latency = round(time.time() - t0, 3)
 
@@ -880,7 +898,7 @@ def upload_bill_base64(
                 "actor": req.actor,
                 "note": final_note,
             }
-            bill_id = db.insert_ocr_bill(bill_record)
+            bill_id = _insert_bill_atomic(bill_record, save_path)
             save_latency = round(time.time() - t0, 3)
 
             return {
@@ -999,7 +1017,7 @@ async def extract_bill_alias(
             "actor": actor,
             "note": final_note,
         }
-        bill_id = db.insert_ocr_bill(bill_record)
+        bill_id = _insert_bill_atomic(bill_record, save_path)
         total_latency = round(time.time() - t0, 3)
 
         return {
