@@ -1,0 +1,27 @@
+# Virtual environments & Model weights
+venv/
+.venv/
+models/
+.work/
+__pycache__/
+*.pyc
+
+# Heavy media & data files (>100MB)
+TEST_IMAGES/
+TEST_IMAGES.zip
+test_images/
+uploads/
+results.csv
+report.html
+gate1_audit*.csv
+*.log
+
+# Sensitive credentials & DB configs
+db_config.json
+freetds.conf
+
+# macOS system & AppleDouble files
+._*
+.DS_Store
+.Spotlight-V100
+.Trashes

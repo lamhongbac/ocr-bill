@@ -1,0 +1,731 @@
+[
+  {
+    "outlet_id": 3164,
+    "outlet_number": "ADIDAS",
+    "outlet_name": "ADIDAS",
+    "brand_id": 1115,
+    "brand_number": "ADIDAS",
+    "brand_name": "ADIDAS",
+    "outlet_address": "L1-12"
+  },
+  {
+    "outlet_id": 3,
+    "outlet_number": "AEONBICYCLE",
+    "outlet_name": "AEON BICYCLE",
+    "brand_id": 1034,
+    "brand_number": "AEON",
+    "brand_name": "_AEON_",
+    "outlet_address": "B1-05"
+  },
+  {
+    "outlet_id": 2,
+    "outlet_number": "AEONGL",
+    "outlet_name": "AEON Glam Beautique",
+    "brand_id": 1034,
+    "brand_number": "AEON",
+    "brand_name": "_AEON_",
+    "outlet_address": "B1-04"
+  },
+  {
+    "outlet_id": 2124,
+    "outlet_number": "AEONPET",
+    "outlet_name": "AEON PET",
+    "brand_id": 1034,
+    "brand_number": "AEON",
+    "brand_name": "_AEON_",
+    "outlet_address": "L4-13"
+  },
+  {
+    "outlet_id": 3233,
+    "outlet_number": "AKAHOUSE",
+    "outlet_name": "AKAHOUSE",
+    "brand_id": 1188,
+    "brand_number": "AKAHOUSE",
+    "brand_name": "AKA HOUSE",
+    "outlet_address": null
+  },
+  {
+    "outlet_id": 3175,
+    "outlet_number": "ALDO",
+    "outlet_name": "ALDO",
+    "brand_id": 1116,
+    "brand_number": "ALDO",
+    "brand_name": "ALDO",
+    "outlet_address": "L1-11"
+  },
+  {
+    "outlet_id": 3180,
+    "outlet_number": "ANPHUOC",
+    "outlet_name": "AN PHƯỚC ",
+    "brand_id": 1117,
+    "brand_number": "ANPHUOC",
+    "brand_name": "AN PHƯỚC",
+    "outlet_address": "L1-26"
+  },
+  {
+    "outlet_id": 3266,
+    "outlet_number": "ASIANA",
+    "outlet_name": "ASIANA FOOD TOWN",
+    "brand_id": 1189,
+    "brand_number": "ASIANA",
+    "brand_name": "_ASIANA FOOD TOWN_",
+    "outlet_address": null
+  },
+  {
+    "outlet_id": 4242,
+    "outlet_number": "BAA",
+    "outlet_name": "BAA BABY",
+    "brand_id": 2201,
+    "brand_number": "BAA Baby",
+    "brand_name": "BAA Baby",
+    "outlet_address": "L2"
+  },
+  {
+    "outlet_id": 4310,
+    "outlet_number": "BEAUTYBOX",
+    "outlet_name": "BEAUTY BOX",
+    "brand_id": 2294,
+    "brand_number": "BEAUTYBOX",
+    "brand_name": "BEAUTYBOX",
+    "outlet_address": null
+  },
+  {
+    "outlet_id": 3206,
+    "outlet_number": "BELLUNI",
+    "outlet_name": "BELLUNI",
+    "brand_id": 1153,
+    "brand_number": "BELLUNI",
+    "brand_name": "BELLUNI",
+    "outlet_address": "L2-09-19"
+  },
+  {
+    "outlet_id": 3230,
+    "outlet_number": "BREADTALK",
+    "outlet_name": "BREADTALK",
+    "brand_id": 1155,
+    "brand_number": "BREADTALK",
+    "brand_name": "BREADTALK",
+    "outlet_address": "L2-02"
+  },
+  {
+    "outlet_id": 21,
+    "outlet_number": "CALIFORNIA",
+    "outlet_name": "CALIFORNIA FITNESS & YOGA",
+    "brand_id": 1044,
+    "brand_number": "CALIFONIA",
+    "brand_name": "CALIFONIA & FITNESS",
+    "outlet_address": "L4-01"
+  },
+  {
+    "outlet_id": 3176,
+    "outlet_number": "CANIFA",
+    "outlet_name": "CANIFA",
+    "brand_id": 1119,
+    "brand_number": "CANIFA",
+    "brand_name": "CANIFA",
+    "outlet_address": "L2-16"
+  },
+  {
+    "outlet_id": 3253,
+    "outlet_number": "CARE",
+    "outlet_name": "CARE",
+    "brand_id": 2360,
+    "brand_number": "CARE",
+    "brand_name": "CARE",
+    "outlet_address": null
+  },
+  {
+    "outlet_id": 1072,
+    "outlet_number": "CGV",
+    "outlet_name": "CGV",
+    "brand_id": 1106,
+    "brand_number": "CGV",
+    "brand_name": "CGV",
+    "outlet_address": "L6-08"
+  },
+  {
+    "outlet_id": 1052,
+    "outlet_number": "CHANGKANGKUNG",
+    "outlet_name": "CHANG KANG KUNG",
+    "brand_id": 1072,
+    "brand_number": "CHANGKANGKUNG",
+    "brand_name": "CHANG KANG KUNG",
+    "outlet_address": "L5-06"
+  },
+  {
+    "outlet_id": 3260,
+    "outlet_number": "CHEERS",
+    "outlet_name": "CHEERS",
+    "brand_id": 2202,
+    "brand_number": "CHEERS",
+    "brand_name": "CHEERS",
+    "outlet_address": null
+  },
+  {
+    "outlet_id": 1118,
+    "outlet_number": "COOPXTRA",
+    "outlet_name": "CO.OPXTRA",
+    "brand_id": 1156,
+    "brand_number": "COOPXTRA",
+    "brand_name": "COOP.XTRA",
+    "outlet_address": "L2-01, L3-01"
+  },
+  {
+    "outlet_id": 3196,
+    "outlet_number": "COUPLETX",
+    "outlet_name": "COUPLE TX",
+    "brand_id": 1157,
+    "brand_number": "COUPLE TX",
+    "brand_name": "COUPLE TX",
+    "outlet_address": "L2-08-5"
+  },
+  {
+    "outlet_id": 3263,
+    "outlet_number": "DAIRYQUEEN",
+    "outlet_name": "DAIRY QUEEN",
+    "brand_id": 1158,
+    "brand_number": "DAIRYQUEEN",
+    "brand_name": "DAIRY QUEEN",
+    "outlet_address": null
+  },
+  {
+    "outlet_id": 3252,
+    "outlet_number": "DATXANH",
+    "outlet_name": "ĐẤT XANH",
+    "brand_id": 2353,
+    "brand_number": "DATXANH",
+    "brand_name": "DATXANH",
+    "outlet_address": null
+  },
+  {
+    "outlet_id": 15,
+    "outlet_number": "DIENMAYCHOLON",
+    "outlet_name": "ĐIỆN MÁY CHỢ LỚN",
+    "brand_id": 1037,
+    "brand_number": "DIENMAYCHOLON",
+    "brand_name": "Điện Máy Chợ Lớn",
+    "outlet_address": "B1-06"
+  },
+  {
+    "outlet_id": 4255,
+    "outlet_number": "DOOKKI",
+    "outlet_name": "DOOKKI",
+    "brand_id": 2244,
+    "brand_number": "DO0KKI ",
+    "brand_name": "DO0KKI VIETNAM",
+    "outlet_address": "B1"
+  },
+  {
+    "outlet_id": 3163,
+    "outlet_number": "FAHASA",
+    "outlet_name": "FAHASA",
+    "brand_id": 1191,
+    "brand_number": "FAHASA",
+    "brand_name": "FAHASA",
+    "outlet_address": "L3-05"
+  },
+  {
+    "outlet_id": 3148,
+    "outlet_number": "FRICO",
+    "outlet_name": "FRICO",
+    "brand_id": 1032,
+    "brand_number": "GG",
+    "brand_name": "_GoldenGate_",
+    "outlet_address": "L3-08"
+  },
+  {
+    "outlet_id": 4248,
+    "outlet_number": "GALBIHOUSE",
+    "outlet_name": "GALBI HOUSE",
+    "brand_id": 2238,
+    "brand_number": "GALBI HOUSE",
+    "brand_name": "GALBI HOUSE",
+    "outlet_address": "L4-09B L4-09C"
+  },
+  {
+    "outlet_id": 1055,
+    "outlet_number": "GOGIHOUSE",
+    "outlet_name": "GOGI HOUSE",
+    "brand_id": 1032,
+    "brand_number": "GG",
+    "brand_name": "_GoldenGate_",
+    "outlet_address": "L5-14"
+  },
+  {
+    "outlet_id": 3267,
+    "outlet_number": "GRILLNCHEER",
+    "outlet_name": "GRILL & CHEER",
+    "brand_id": 2211,
+    "brand_number": "GRILLANDCHER",
+    "brand_name": "GRILL AND CHEER",
+    "outlet_address": null
+  },
+  {
+    "outlet_id": 3152,
+    "outlet_number": "GUARDIAN",
+    "outlet_name": "GUARDIAN",
+    "brand_id": 1124,
+    "brand_number": "GUARDIAN",
+    "brand_name": "GUARDIAN",
+    "outlet_address": "L1-19"
+  },
+  {
+    "outlet_id": 3215,
+    "outlet_number": "GUMAC",
+    "outlet_name": "GUMAC",
+    "brand_id": 1033,
+    "brand_number": "SSC",
+    "brand_name": "_Sense City_",
+    "outlet_address": "L2-09-07"
+  },
+  {
+    "outlet_id": 4276,
+    "outlet_number": "HDL",
+    "outlet_name": "HAIDILAO",
+    "brand_id": 2265,
+    "brand_number": "HAIDILAO",
+    "brand_name": "HAIDILAO",
+    "outlet_address": "L5_07"
+  },
+  {
+    "outlet_id": 3226,
+    "outlet_number": "HIGHLANDS",
+    "outlet_name": "HIGHLANDS COFFEE",
+    "brand_id": 1125,
+    "brand_number": "HIGHLANDS",
+    "brand_name": "HIGHLANDS",
+    "outlet_address": "L1-22"
+  },
+  {
+    "outlet_id": 3198,
+    "outlet_number": "IBASIC",
+    "outlet_name": "IBASIC",
+    "brand_id": 1033,
+    "brand_number": "SSC",
+    "brand_name": "_Sense City_",
+    "outlet_address": "L2-09-10"
+  },
+  {
+    "outlet_id": 32,
+    "outlet_number": "ILA",
+    "outlet_name": "ILA VIỆT NAM",
+    "brand_id": 1051,
+    "brand_number": "ILA",
+    "brand_name": "ILA",
+    "outlet_address": "L4-07"
+  },
+  {
+    "outlet_id": 16,
+    "outlet_number": "JOLLIBEE",
+    "outlet_name": "JOLLIBEE",
+    "brand_id": 1039,
+    "brand_number": "JOLLIBEE",
+    "brand_name": "JOLLIBEE",
+    "outlet_address": "B1-01B3"
+  },
+  {
+    "outlet_id": 1073,
+    "outlet_number": "JP",
+    "outlet_name": "JP GAME & BOWLING",
+    "brand_id": 1108,
+    "brand_number": "JP BOWLING",
+    "brand_name": "_JP BOWLING GAME CENTER_",
+    "outlet_address": "L6"
+  },
+  {
+    "outlet_id": 1059,
+    "outlet_number": "KFC",
+    "outlet_name": "KFC",
+    "brand_id": 1094,
+    "brand_number": "KFC",
+    "brand_name": "KFC",
+    "outlet_address": null
+  },
+  {
+    "outlet_id": 1060,
+    "outlet_number": "KICHIKICHI",
+    "outlet_name": "KICHI KICHI",
+    "brand_id": 1032,
+    "brand_number": "GG",
+    "brand_name": "_GoldenGate_",
+    "outlet_address": "L5-15"
+  },
+  {
+    "outlet_id": 1061,
+    "outlet_number": "KINGBBQ",
+    "outlet_name": "KINGBBQ",
+    "brand_id": 2168,
+    "brand_number": "REDSUN",
+    "brand_name": "_Redsun ITI Corporation_",
+    "outlet_address": "L5-05"
+  },
+  {
+    "outlet_id": 17,
+    "outlet_number": "KOHNAN",
+    "outlet_name": "KOHNAN",
+    "brand_id": 1040,
+    "brand_number": "KOHNAN",
+    "brand_name": "KOHNAN",
+    "outlet_address": "B1-02"
+  },
+  {
+    "outlet_id": 4286,
+    "outlet_number": "KYMDAN",
+    "outlet_name": "KYMDAN",
+    "brand_id": 2277,
+    "brand_number": "KYMDAN",
+    "brand_name": "KYMDAN",
+    "outlet_address": null
+  },
+  {
+    "outlet_id": 3179,
+    "outlet_number": "LEVIS",
+    "outlet_name": "LEVI'S",
+    "brand_id": 1127,
+    "brand_number": "LEVIS",
+    "brand_name": "LEVIS",
+    "outlet_address": "L1-25"
+  },
+  {
+    "outlet_id": 1063,
+    "outlet_number": "MANWAH",
+    "outlet_name": "MANWAH",
+    "brand_id": 1032,
+    "brand_number": "GG",
+    "brand_name": "_GoldenGate_",
+    "outlet_address": "L5-13"
+  },
+  {
+    "outlet_id": 3181,
+    "outlet_number": "MATVIET",
+    "outlet_name": "MẮT VIỆT",
+    "brand_id": 1130,
+    "brand_number": "MATVIET",
+    "brand_name": "MẮT VIỆT",
+    "outlet_address": "L1-28"
+  },
+  {
+    "outlet_id": 3259,
+    "outlet_number": "MCDONALDS",
+    "outlet_name": "MCDONALDS",
+    "brand_id": 2197,
+    "brand_number": "McDonald",
+    "brand_name": "McDonald",
+    "outlet_address": null
+  },
+  {
+    "outlet_id": 3172,
+    "outlet_number": "MEGANEPRINCE",
+    "outlet_name": "MEGANE PRINCE",
+    "brand_id": 2225,
+    "brand_number": "MEGANEPRINCE",
+    "brand_name": "MEGANE PRINCE",
+    "outlet_address": "L1-07"
+  },
+  {
+    "outlet_id": 3150,
+    "outlet_number": "SPM",
+    "outlet_name": "MINISO",
+    "brand_id": 1170,
+    "brand_number": "MINISO",
+    "brand_name": "MINISO",
+    "outlet_address": "L2-03"
+  },
+  {
+    "outlet_id": 3134,
+    "outlet_number": "MYKINGDOM",
+    "outlet_name": "MY KINGDOM",
+    "brand_id": 2174,
+    "brand_number": "MYKINGDOM",
+    "brand_name": "MY KINGDOM",
+    "outlet_address": "L4-12"
+  },
+  {
+    "outlet_id": 3165,
+    "outlet_number": "NIKE",
+    "outlet_name": "NIKE",
+    "brand_id": 1131,
+    "brand_number": "NIKE",
+    "brand_name": "NIKE",
+    "outlet_address": "L1-14"
+  },
+  {
+    "outlet_id": 3213,
+    "outlet_number": "NINOMAXX",
+    "outlet_name": "NINOMAXX",
+    "brand_id": 1172,
+    "brand_number": "NINOMAXX",
+    "brand_name": "NINOMAXX",
+    "outlet_address": "L2-09-05"
+  },
+  {
+    "outlet_id": 3237,
+    "outlet_number": "PASSIO",
+    "outlet_name": "PASSIO",
+    "brand_id": 2195,
+    "brand_number": "Passio",
+    "brand_name": "Passio",
+    "outlet_address": "L1"
+  },
+  {
+    "outlet_id": 1041,
+    "outlet_number": "PHUCLONG",
+    "outlet_name": "PHUC LONG",
+    "brand_id": 1060,
+    "brand_number": "PHUCLONG",
+    "brand_name": "PHUC LONG",
+    "outlet_address": "L4-08B"
+  },
+  {
+    "outlet_id": 4309,
+    "outlet_number": "PIERRECARDIN",
+    "outlet_name": "PIERRE CARDIN",
+    "brand_id": 2293,
+    "brand_number": "PIERRE CARDIN",
+    "brand_name": "PIERRE CARDIN",
+    "outlet_address": null
+  },
+  {
+    "outlet_id": 4308,
+    "outlet_number": "PP4",
+    "outlet_name": "Pizza 4P's",
+    "brand_id": 2292,
+    "brand_number": "Pizza 4P's",
+    "brand_name": "Pizza 4P's",
+    "outlet_address": "L4"
+  },
+  {
+    "outlet_id": 3183,
+    "outlet_number": "PNJGOLDSILVER",
+    "outlet_name": "PNJ GOLD & SILVER",
+    "brand_id": 1133,
+    "brand_number": "PNJ",
+    "brand_name": "PNJ GOLD & SILVER",
+    "outlet_address": "L1-30"
+  },
+  {
+    "outlet_id": 3182,
+    "outlet_number": "PNJWATCH",
+    "outlet_name": "PNJ WATCH",
+    "brand_id": 1133,
+    "brand_number": "PNJ",
+    "brand_name": "PNJ GOLD & SILVER",
+    "outlet_address": "L1-29"
+  },
+  {
+    "outlet_id": 3274,
+    "outlet_number": "GIGAMALL",
+    "outlet_name": "QUẦY INFORMATION GIGAMALL",
+    "brand_id": 3446,
+    "brand_number": "GGM",
+    "brand_name": "GIGAMALL",
+    "outlet_address": null
+  },
+  {
+    "outlet_id": 3219,
+    "outlet_number": "RABITY",
+    "outlet_name": "RABITY",
+    "brand_id": 1178,
+    "brand_number": "RABITY",
+    "brand_name": "RABITY",
+    "outlet_address": "L2-18"
+  },
+  {
+    "outlet_id": 1075,
+    "outlet_number": "RAINBOWFUN",
+    "outlet_name": "RAINBOW FUN",
+    "brand_id": 1108,
+    "brand_number": "JP BOWLING",
+    "brand_name": "_JP BOWLING GAME CENTER_",
+    "outlet_address": "L6-03-04"
+  },
+  {
+    "outlet_id": 3177,
+    "outlet_number": "SAMSONITE",
+    "outlet_name": "SAMSONITE",
+    "brand_id": 1136,
+    "brand_number": "SAMSONITE",
+    "brand_name": "SAMSONITE",
+    "outlet_address": "L1-18"
+  },
+  {
+    "outlet_id": 3127,
+    "outlet_number": "SENSECITY",
+    "outlet_name": "SENSE CITY",
+    "brand_id": 1033,
+    "brand_number": "SSC",
+    "brand_name": "_Sense City_",
+    "outlet_address": "L1 L2 L3"
+  },
+  {
+    "outlet_id": 3187,
+    "outlet_number": "SJC",
+    "outlet_name": "SJC",
+    "brand_id": 1137,
+    "brand_number": "SJC",
+    "brand_name": "SJC",
+    "outlet_address": "L1-37"
+  },
+  {
+    "outlet_id": 3166,
+    "outlet_number": "SKECHERS",
+    "outlet_name": "SKECHERS",
+    "brand_id": 1139,
+    "brand_number": "SKETCHER",
+    "brand_name": "SKETCHER",
+    "outlet_address": "L1-17"
+  },
+  {
+    "outlet_id": 3202,
+    "outlet_number": "SLINE",
+    "outlet_name": "SLINE",
+    "brand_id": 1180,
+    "brand_number": "SLINE",
+    "brand_name": "SLINE",
+    "outlet_address": "L2-09-14"
+  },
+  {
+    "outlet_id": 3205,
+    "outlet_number": "SONKIMMODE",
+    "outlet_name": "SƠN KIM MODE",
+    "brand_id": 1181,
+    "brand_number": "SONKIMMODE",
+    "brand_name": "SƠN KIM MODE",
+    "outlet_address": "L2-09-18"
+  },
+  {
+    "outlet_id": 3238,
+    "outlet_number": "SPICYBOX",
+    "outlet_name": "SPICY BOX",
+    "brand_id": 2194,
+    "brand_number": "SPICYBOX",
+    "brand_name": "SPICY BOX",
+    "outlet_address": "L5"
+  },
+  {
+    "outlet_id": 3227,
+    "outlet_number": "STARBUCKS",
+    "outlet_name": "STARBUCKS",
+    "brand_id": 1141,
+    "brand_number": "STARBUCKS",
+    "brand_name": "STARBUCKS",
+    "outlet_address": "L1-23"
+  },
+  {
+    "outlet_id": 1045,
+    "outlet_number": "SUKIYA",
+    "outlet_name": "SUKIYA",
+    "brand_id": 1064,
+    "brand_number": "SUKIYA",
+    "brand_name": "SUKIYA",
+    "outlet_address": null
+  },
+  {
+    "outlet_id": 1066,
+    "outlet_number": "SUMOBBQ",
+    "outlet_name": "SUMO BBQ",
+    "brand_id": 1032,
+    "brand_number": "GG",
+    "brand_name": "_GoldenGate_",
+    "outlet_address": "L5-16-17"
+  },
+  {
+    "outlet_id": 3207,
+    "outlet_number": "SUNDAYSHOES",
+    "outlet_name": "SUNDAY",
+    "brand_id": 1182,
+    "brand_number": "SUNDAY",
+    "brand_name": "SUNDAY",
+    "outlet_address": "L4"
+  },
+  {
+    "outlet_id": 4299,
+    "outlet_number": "SUSHIWA",
+    "outlet_name": "SUSHI WA",
+    "brand_id": 2283,
+    "brand_number": "SUSHI WA",
+    "brand_name": "SUSHI WA",
+    "outlet_address": null
+  },
+  {
+    "outlet_id": 3222,
+    "outlet_number": "TAJ",
+    "outlet_name": "TAJ",
+    "brand_id": 3480,
+    "brand_number": "TAJ",
+    "brand_name": "TAJ",
+    "outlet_address": "L4-28"
+  },
+  {
+    "outlet_id": 18,
+    "outlet_number": "TEXASCHICKEN",
+    "outlet_name": "TEXAS CHICKEN",
+    "brand_id": 1041,
+    "brand_number": "TEXAS",
+    "brand_name": "TEXAS CHICKEN",
+    "outlet_address": "L1-02"
+  },
+  {
+    "outlet_id": 3184,
+    "outlet_number": "THEGIOIKIMCUONG",
+    "outlet_name": "THẾ GIỚI KIM CƯƠNG ",
+    "brand_id": 1145,
+    "brand_number": "THEGIOIKIMCUONG",
+    "brand_name": "THẾ GIỚI KIM CƯƠNG",
+    "outlet_address": "L1-34"
+  },
+  {
+    "outlet_id": 3255,
+    "outlet_number": "THEPIZZACOMPANY",
+    "outlet_name": "THE PIZZA COMPANY",
+    "brand_id": 1194,
+    "brand_number": "PIZZACOMPANY",
+    "brand_name": "PIZZA COMPANY",
+    "outlet_address": null
+  },
+  {
+    "outlet_id": 1068,
+    "outlet_number": "TINIWORLD",
+    "outlet_name": "TINIWORLD",
+    "brand_id": 1103,
+    "brand_number": "TINIWORLD",
+    "brand_name": "TINIWORLD",
+    "outlet_address": "L5-01"
+  },
+  {
+    "outlet_id": 3190,
+    "outlet_number": "TISSOT",
+    "outlet_name": "TISSOT",
+    "brand_id": 3479,
+    "brand_number": "TISSOT",
+    "brand_name": "TISSOT",
+    "outlet_address": "L1-40"
+  },
+  {
+    "outlet_id": 4257,
+    "outlet_number": "VietTien",
+    "outlet_name": "Việt Tiến",
+    "brand_id": 2203,
+    "brand_number": "VIETTIEN",
+    "brand_name": "Việt Tiến",
+    "outlet_address": null
+  },
+  {
+    "outlet_id": 3251,
+    "outlet_number": "VPGOLDENGATE",
+    "outlet_name": "VP GOLDEN GATE",
+    "brand_id": 1032,
+    "brand_number": "GG",
+    "brand_name": "_GoldenGate_",
+    "outlet_address": null
+  },
+  {
+    "outlet_id": 3270,
+    "outlet_number": "WRAPNROLL",
+    "outlet_name": "WRAP & ROLL",
+    "brand_id": 2234,
+    "brand_number": "WRAP&ROLL",
+    "brand_name": "WRAP & ROLL",
+    "outlet_address": "L3"
+  }
+]

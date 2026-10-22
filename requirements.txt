@@ -1,0 +1,9 @@
+mlx==0.32.4
+mlx-metal==0.32.4
+mlx-vlm==0.7.9
+transformers==5.20.2
+huggingface_hub==2.2.0
+torch==2.14.1
+torchvision==0.29.1
+pillow==13.0.0
+pandas==3.0.6

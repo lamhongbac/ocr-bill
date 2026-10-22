@@ -1,0 +1,8 @@
+{
+  "server": "CLMHQ4GIGA",
+  "host": "115.165.166.208",
+  "port": 6868,
+  "database": "CLMHQTEST",
+  "user": "YOUR_DB_USER",
+  "password": "YOUR_DB_PASSWORD"
+}
