@@ -350,6 +350,9 @@ def update_bill_review(bill_id, status, actor="CRM Admin", reject_reason=None):
             raise ValueError(f"Không tìm thấy hóa đơn ID {bill_id}")
 
         old_status = old["Status"]
+        if old_status in ("APPROVED", "REJECTED") and old_status != status:
+            raise ValueError(f"Hóa đơn #{bill_id} đã được thẩm định ({old_status}). Không thể thay đổi trạng thái sau khi đã hoàn tất!")
+
         now = datetime.now()
 
         cursor.execute("""
@@ -387,6 +390,10 @@ def update_bill_fields(bill_id, updates: dict, actor="CRM Admin", note=None):
         current = cursor.fetchone()
         if not current:
             raise ValueError(f"Không tìm thấy hóa đơn ID {bill_id}")
+
+        current_status = current.get("Status")
+        if current_status in ("APPROVED", "REJECTED"):
+            raise ValueError(f"Hóa đơn #{bill_id} đã ở trạng thái {current_status}. Không được phép chỉnh sửa hóa đơn đã duyệt hoặc đã từ chối!")
 
         set_clauses = []
         set_params = []

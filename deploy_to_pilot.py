@@ -36,6 +36,7 @@ DEPLOY_FILES = [
     "db.py",
     "ocr_engine.py",
     "CRM_API_INTEGRATION_SPEC.md",
+    "CRM_BILL_REVIEW_AND_AUDIT_TECH_SPEC.md",
     "setup_database_dev.sql",
     "SERVER_BASELINE_AND_CHANGE_MANAGEMENT.md",
     "deploy_to_pilot.py"

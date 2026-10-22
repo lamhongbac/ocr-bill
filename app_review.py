@@ -2140,21 +2140,22 @@ function showBill(idx) {
   inpDateTime.value = b.FinalDateTime ? b.FinalDateTime.replace("T", " ") : (b.OcrDateTime ? b.OcrDateTime.replace("T", " ") : "");
   inpNote.value = "";
 
-  // Requirement 3: Lock if APPROVED & Change styling
-  const isApproved = (b.Status === "APPROVED");
+  // Requirement 3: Lock if APPROVED or REJECTED & Change styling
+  const isLocked = (b.Status === "APPROVED" || b.Status === "REJECTED");
   const panelRight = document.querySelector(".inspector-right");
   const lockedBanner = document.getElementById("locked-banner");
   const actionBtns = document.getElementById("inspector-action-buttons");
   const lockedMsg = document.getElementById("inspector-locked-msg");
 
   [inpOutlet, inpTotal, inpBillNo, inpDateTime, inpNote].forEach(inp => {
-    inp.disabled = isApproved;
+    inp.disabled = isLocked;
   });
 
-  if (isApproved) {
+  if (isLocked) {
     panelRight.classList.add("bill-locked");
     lockedBanner.classList.add("active");
-    lockedBanner.innerHTML = `🔒 <span>HÓA ĐƠN ĐÃ DUYỆT BỞI <b>${b.ReviewedBy || 'Admin'}</b> — ĐÃ KHÓA DỮ LIỆU KHÔNG CHO CHỈNH SỬA</span>`;
+    const actionText = b.Status === "APPROVED" ? "ĐÃ DUYỆT" : "ĐÃ TỪ CHỐI";
+    lockedBanner.innerHTML = `🔒 <span>HÓA ĐƠN ${actionText} BỞI <b>${b.ReviewedBy || 'Admin'}</b> — ĐÃ KHÓA DỮ LIỆU KHÔNG CHO CHỈNH SỬA</span>`;
     actionBtns.style.display = "none";
     lockedMsg.style.display = "flex";
   } else {
