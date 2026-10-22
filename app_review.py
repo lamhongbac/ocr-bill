@@ -1808,11 +1808,11 @@ tr:hover td { background: rgba(255,255,255,0.02); cursor: pointer; }
           <button id="btn-close-save-banner" style="background:none; border:none; color:inherit; font-size:16px; cursor:pointer; opacity:0.7;" title="Đóng thông báo">✕</button>
         </div>
 
-        <!-- Coalesce Rule Notice -->
+        <!-- Explanation Rule Notice -->
         <div class="coalesce-guide-box">
-          <span style="font-size: 18px;">⚖️</span>
-          <div style="flex: 1; font-size: 11.5px; line-height: 1.45;">
-            <b>Nguyên tắc kiểm toán Coalesce:</b> Ô nhập của Admin mặc định <b>ĐỂ TRỐNG</b> (không sửa). Admin chỉ nhập khi phát hiện AI đọc sai. Kết quả Chốt (Final) sẽ tự động lấy số liệu Admin nhập, nếu để trống sẽ tự động lấy số liệu AI gốc.
+          <span style="font-size: 18px;">💡</span>
+          <div style="flex: 1; font-size: 12px; line-height: 1.45;">
+            <b>Quy tắc ghi nhận:</b> Nếu Admin field để trống thì số liệu cuối cùng theo AI field, nếu Admin nhập thì số liệu cuối cùng theo Admin.
           </div>
         </div>
 
@@ -1820,11 +1820,11 @@ tr:hover td { background: rgba(255,255,255,0.02); cursor: pointer; }
         <div class="audit-field-card" id="card-outlet">
           <div class="field-header">
             <div class="field-title">🏬 Cửa hàng / Gian hàng (Outlet)</div>
-            <span class="source-badge ai" id="badge-outlet">⚪ Để trống (Lấy theo AI)</span>
+            <span class="source-badge ai" id="badge-outlet">Theo AI</span>
           </div>
           <div class="field-cols">
             <div class="ai-evidence-box">
-              <span class="ai-evidence-label">🤖 AI Gốc (Bất biến)</span>
+              <span class="ai-evidence-label">AI đọc:</span>
               <span class="ai-evidence-val" id="ocr-outlet">–</span>
             </div>
             <div class="admin-input-wrap">
@@ -1832,30 +1832,22 @@ tr:hover td { background: rgba(255,255,255,0.02); cursor: pointer; }
               <datalist id="outlets-datalist"></datalist>
             </div>
           </div>
-          <div class="field-final-preview">
-            <span>➡️ Chốt (Final):</span>
-            <span class="field-final-val" id="final-outlet-preview">–</span>
-          </div>
         </div>
 
         <!-- 2. Total Amount Card -->
         <div class="audit-field-card" id="card-total">
           <div class="field-header">
             <div class="field-title">💰 Số tiền thanh toán hợp lệ (VNĐ)</div>
-            <span class="source-badge ai" id="badge-total">⚪ Để trống (Lấy theo AI)</span>
+            <span class="source-badge ai" id="badge-total">Theo AI</span>
           </div>
           <div class="field-cols">
             <div class="ai-evidence-box">
-              <span class="ai-evidence-label">🤖 AI Gốc (Bất biến)</span>
+              <span class="ai-evidence-label">AI đọc:</span>
               <span class="ai-evidence-val" id="ocr-total">0 đ</span>
             </div>
             <div class="admin-input-wrap">
               <input type="text" class="input-box amount-input" id="inp-total" placeholder="(Để trống nếu AI đọc đúng)">
             </div>
-          </div>
-          <div class="field-final-preview">
-            <span>➡️ Chốt (Final):</span>
-            <span class="field-final-val" id="final-total-preview" style="font-size: 13.5px;">0 VNĐ</span>
           </div>
         </div>
 
@@ -1863,20 +1855,16 @@ tr:hover td { background: rgba(255,255,255,0.02); cursor: pointer; }
         <div class="audit-field-card" id="card-billno">
           <div class="field-header">
             <div class="field-title">🧾 Mã số hóa đơn (Bill No)</div>
-            <span class="source-badge ai" id="badge-billno">⚪ Để trống (Lấy theo AI)</span>
+            <span class="source-badge ai" id="badge-billno">Theo AI</span>
           </div>
           <div class="field-cols">
             <div class="ai-evidence-box">
-              <span class="ai-evidence-label">🤖 AI Gốc (Bất biến)</span>
+              <span class="ai-evidence-label">AI đọc:</span>
               <span class="ai-evidence-val" id="ocr-billno">–</span>
             </div>
             <div class="admin-input-wrap">
               <input type="text" class="input-box" id="inp-billno" placeholder="(Để trống nếu AI đọc đúng)">
             </div>
-          </div>
-          <div class="field-final-preview">
-            <span>➡️ Chốt (Final):</span>
-            <span class="field-final-val" id="final-billno-preview" style="font-family: monospace;">–</span>
           </div>
         </div>
 
@@ -1884,29 +1872,25 @@ tr:hover td { background: rgba(255,255,255,0.02); cursor: pointer; }
         <div class="audit-field-card" id="card-datetime">
           <div class="field-header">
             <div class="field-title">🕒 Ngày giờ giao dịch</div>
-            <span class="source-badge ai" id="badge-datetime">⚪ Để trống (Lấy theo AI)</span>
+            <span class="source-badge ai" id="badge-datetime">Theo AI</span>
           </div>
           <div class="field-cols">
             <div class="ai-evidence-box">
-              <span class="ai-evidence-label">🤖 AI Gốc (Bất biến)</span>
+              <span class="ai-evidence-label">AI đọc:</span>
               <span class="ai-evidence-val" id="ocr-datetime">–</span>
             </div>
             <div class="admin-input-wrap">
               <input type="text" class="input-box" id="inp-datetime" placeholder="(Để trống nếu AI đọc đúng: YYYY-MM-DD HH:mm:ss)">
             </div>
           </div>
-          <div class="field-final-preview">
-            <span>➡️ Chốt (Final):</span>
-            <span class="field-final-val" id="final-datetime-preview">–</span>
-          </div>
         </div>
 
         <!-- 5. Auditor Note -->
         <div class="form-group" style="margin-top: 2px;">
           <label class="form-label">
-            <span>📝 Ghi chú điều chỉnh (Auditor note - Bắt buộc khi có sửa đổi)</span>
+            <span>📝 Ghi chú điều chỉnh (Auditor note - Nhập lý do nếu có sửa)</span>
           </label>
-          <input type="text" class="input-box" id="inp-note" placeholder="Nhập lý do điều chỉnh nếu có can thiệp số liệu...">
+          <input type="text" class="input-box" id="inp-note" placeholder="Nhập lý do điều chỉnh nếu Admin có can thiệp số liệu...">
         </div>
       </div>
 
@@ -2590,20 +2574,15 @@ function checkDiff(b) {
   if (!b) return;
 
   // 1. Outlet
-  const aiOutlet = b.OcrOutletName || "";
   const curOutlet = document.getElementById("inp-outlet-name").value.trim();
   const hasAdminOutlet = curOutlet !== "";
   const cardOutlet = document.getElementById("card-outlet");
   const badgeOutlet = document.getElementById("badge-outlet");
-  const finalOutlet = document.getElementById("final-outlet-preview");
 
-  if (cardOutlet && badgeOutlet && finalOutlet) {
+  if (cardOutlet && badgeOutlet) {
     cardOutlet.classList.toggle("is-edited", hasAdminOutlet);
     badgeOutlet.className = `source-badge ${hasAdminOutlet ? 'edited' : 'ai'}`;
-    badgeOutlet.innerHTML = hasAdminOutlet ? `✍️ Admin đã nhập` : `⚪ Để trống (Lấy theo AI)`;
-    finalOutlet.innerHTML = hasAdminOutlet 
-      ? `<span style="color:#ffb86c; font-weight:700;">${curOutlet}</span> <span style="font-size:11px; color:#ffb86c; margin-left:6px;">(Theo Admin)</span>`
-      : `<span style="color:var(--text-main); font-weight:600;">${aiOutlet || "–"}</span> <span style="font-size:11px; color:var(--accent); margin-left:6px;">(Theo AI)</span>`;
+    badgeOutlet.innerHTML = hasAdminOutlet ? `✍️ Theo Admin` : `Theo AI`;
   }
 
   // 2. Total
@@ -2613,52 +2592,38 @@ function checkDiff(b) {
   const curTotal = hasAdminTotal ? (parseInt(rawTotalStr.replace(/[^0-9]/g, ""), 10) || 0) : null;
   const cardTotal = document.getElementById("card-total");
   const badgeTotal = document.getElementById("badge-total");
-  const finalTotal = document.getElementById("final-total-preview");
 
-  if (cardTotal && badgeTotal && finalTotal) {
+  if (cardTotal && badgeTotal) {
     cardTotal.classList.toggle("is-edited", hasAdminTotal);
     badgeTotal.className = `source-badge ${hasAdminTotal ? 'edited' : 'ai'}`;
-    badgeTotal.innerHTML = hasAdminTotal ? `✍️ Admin đã nhập` : `⚪ Để trống (Lấy theo AI)`;
-    finalTotal.innerHTML = hasAdminTotal
-      ? `<span style="color:#ffb86c; font-weight:700; font-size:13.5px;">${curTotal.toLocaleString("vi-VN")} VNĐ</span> <span style="font-size:11px; color:#ffb86c; margin-left:6px;">(Theo Admin)</span>`
-      : `<span style="color:var(--accent); font-weight:700; font-size:13.5px;">${aiTotal.toLocaleString("vi-VN")} VNĐ</span> <span style="font-size:11px; color:var(--accent); margin-left:6px;">(Theo AI)</span>`;
+    badgeTotal.innerHTML = hasAdminTotal ? `✍️ Theo Admin` : `Theo AI`;
   }
 
   diffAlert.classList.toggle("active", hasAdminTotal && curTotal !== aiTotal);
   document.getElementById("inp-total").classList.toggle("diff-highlight", hasAdminTotal && curTotal !== aiTotal);
 
   // 3. Bill Number
-  const aiBillNo = b.OcrBillNumber || "";
   const curBillNo = document.getElementById("inp-billno").value.trim();
   const hasAdminBillNo = curBillNo !== "";
   const cardBillNo = document.getElementById("card-billno");
   const badgeBillNo = document.getElementById("badge-billno");
-  const finalBillNo = document.getElementById("final-billno-preview");
 
-  if (cardBillNo && badgeBillNo && finalBillNo) {
+  if (cardBillNo && badgeBillNo) {
     cardBillNo.classList.toggle("is-edited", hasAdminBillNo);
     badgeBillNo.className = `source-badge ${hasAdminBillNo ? 'edited' : 'ai'}`;
-    badgeBillNo.innerHTML = hasAdminBillNo ? `✍️ Admin đã nhập` : `⚪ Để trống (Lấy theo AI)`;
-    finalBillNo.innerHTML = hasAdminBillNo
-      ? `<span style="color:#ffb86c; font-family:monospace; font-weight:700;">${curBillNo}</span> <span style="font-size:11px; color:#ffb86c; margin-left:6px;">(Theo Admin)</span>`
-      : `<span style="color:var(--text-main); font-family:monospace; font-weight:600;">${aiBillNo || "–"}</span> <span style="font-size:11px; color:var(--accent); margin-left:6px;">(Theo AI)</span>`;
+    badgeBillNo.innerHTML = hasAdminBillNo ? `✍️ Theo Admin` : `Theo AI`;
   }
 
   // 4. DateTime
-  const aiDateTime = (b.OcrDateTime || "").replace("T", " ");
   const curDateTime = document.getElementById("inp-datetime").value.trim();
   const hasAdminDateTime = curDateTime !== "";
   const cardDateTime = document.getElementById("card-datetime");
   const badgeDateTime = document.getElementById("badge-datetime");
-  const finalDateTime = document.getElementById("final-datetime-preview");
 
-  if (cardDateTime && badgeDateTime && finalDateTime) {
+  if (cardDateTime && badgeDateTime) {
     cardDateTime.classList.toggle("is-edited", hasAdminDateTime);
     badgeDateTime.className = `source-badge ${hasAdminDateTime ? 'edited' : 'ai'}`;
-    badgeDateTime.innerHTML = hasAdminDateTime ? `✍️ Admin đã nhập` : `⚪ Để trống (Lấy theo AI)`;
-    finalDateTime.innerHTML = hasAdminDateTime
-      ? `<span style="color:#ffb86c; font-weight:700;">${curDateTime}</span> <span style="font-size:11px; color:#ffb86c; margin-left:6px;">(Theo Admin)</span>`
-      : `<span style="color:var(--text-main); font-weight:600;">${aiDateTime || "–"}</span> <span style="font-size:11px; color:var(--accent); margin-left:6px;">(Theo AI)</span>`;
+    badgeDateTime.innerHTML = hasAdminDateTime ? `✍️ Theo Admin` : `Theo AI`;
   }
 }
 
