@@ -1812,7 +1812,7 @@ tr:hover td { background: rgba(255,255,255,0.02); cursor: pointer; }
         <div class="coalesce-guide-box">
           <span style="font-size: 18px;">⚖️</span>
           <div style="flex: 1; font-size: 11.5px; line-height: 1.45;">
-            <b>Quy tắc kiểm toán Coalesce:</b> Dữ liệu AI gốc luôn được lưu trữ bất biến. Nếu Admin để trống hoặc không sửa, hệ thống sẽ <b>tự động kế thừa</b> giá trị của AI để ra kết quả Final.
+            <b>Nguyên tắc kiểm toán Coalesce:</b> Ô nhập của Admin mặc định <b>ĐỂ TRỐNG</b> (không sửa). Admin chỉ nhập khi phát hiện AI đọc sai. Kết quả Chốt (Final) sẽ tự động lấy số liệu Admin nhập, nếu để trống sẽ tự động lấy số liệu AI gốc.
           </div>
         </div>
 
@@ -1820,7 +1820,7 @@ tr:hover td { background: rgba(255,255,255,0.02); cursor: pointer; }
         <div class="audit-field-card" id="card-outlet">
           <div class="field-header">
             <div class="field-title">🏬 Cửa hàng / Gian hàng (Outlet)</div>
-            <span class="source-badge ai" id="badge-outlet">🤖 Kế thừa AI</span>
+            <span class="source-badge ai" id="badge-outlet">⚪ Để trống (Lấy theo AI)</span>
           </div>
           <div class="field-cols">
             <div class="ai-evidence-box">
@@ -1828,9 +1828,8 @@ tr:hover td { background: rgba(255,255,255,0.02); cursor: pointer; }
               <span class="ai-evidence-val" id="ocr-outlet">–</span>
             </div>
             <div class="admin-input-wrap">
-              <input list="outlets-datalist" class="input-box" id="inp-outlet-name" placeholder="Để trống = Kế thừa số liệu AI...">
+              <input list="outlets-datalist" class="input-box" id="inp-outlet-name" placeholder="(Để trống nếu AI đọc đúng)">
               <datalist id="outlets-datalist"></datalist>
-              <button class="btn-revert-ai" id="btn-revert-outlet" title="Khôi phục về giá trị AI gốc">↺ Lấy AI</button>
             </div>
           </div>
           <div class="field-final-preview">
@@ -1843,7 +1842,7 @@ tr:hover td { background: rgba(255,255,255,0.02); cursor: pointer; }
         <div class="audit-field-card" id="card-total">
           <div class="field-header">
             <div class="field-title">💰 Số tiền thanh toán hợp lệ (VNĐ)</div>
-            <span class="source-badge ai" id="badge-total">🤖 Kế thừa AI</span>
+            <span class="source-badge ai" id="badge-total">⚪ Để trống (Lấy theo AI)</span>
           </div>
           <div class="field-cols">
             <div class="ai-evidence-box">
@@ -1851,13 +1850,12 @@ tr:hover td { background: rgba(255,255,255,0.02); cursor: pointer; }
               <span class="ai-evidence-val" id="ocr-total">0 đ</span>
             </div>
             <div class="admin-input-wrap">
-              <input type="text" class="input-box amount-input" id="inp-total" placeholder="0">
-              <button class="btn-revert-ai" id="btn-revert-total" title="Khôi phục về giá trị AI gốc">↺ Lấy AI</button>
+              <input type="text" class="input-box amount-input" id="inp-total" placeholder="(Để trống nếu AI đọc đúng)">
             </div>
           </div>
           <div class="field-final-preview">
             <span>➡️ Chốt (Final):</span>
-            <span class="field-final-val" id="final-total-preview" style="color: var(--accent); font-size: 13.5px;">0 VNĐ</span>
+            <span class="field-final-val" id="final-total-preview" style="font-size: 13.5px;">0 VNĐ</span>
           </div>
         </div>
 
@@ -1865,7 +1863,7 @@ tr:hover td { background: rgba(255,255,255,0.02); cursor: pointer; }
         <div class="audit-field-card" id="card-billno">
           <div class="field-header">
             <div class="field-title">🧾 Mã số hóa đơn (Bill No)</div>
-            <span class="source-badge ai" id="badge-billno">🤖 Kế thừa AI</span>
+            <span class="source-badge ai" id="badge-billno">⚪ Để trống (Lấy theo AI)</span>
           </div>
           <div class="field-cols">
             <div class="ai-evidence-box">
@@ -1873,8 +1871,7 @@ tr:hover td { background: rgba(255,255,255,0.02); cursor: pointer; }
               <span class="ai-evidence-val" id="ocr-billno">–</span>
             </div>
             <div class="admin-input-wrap">
-              <input type="text" class="input-box" id="inp-billno" placeholder="Để trống = Kế thừa số liệu AI...">
-              <button class="btn-revert-ai" id="btn-revert-billno" title="Khôi phục về giá trị AI gốc">↺ Lấy AI</button>
+              <input type="text" class="input-box" id="inp-billno" placeholder="(Để trống nếu AI đọc đúng)">
             </div>
           </div>
           <div class="field-final-preview">
@@ -1887,7 +1884,7 @@ tr:hover td { background: rgba(255,255,255,0.02); cursor: pointer; }
         <div class="audit-field-card" id="card-datetime">
           <div class="field-header">
             <div class="field-title">🕒 Ngày giờ giao dịch</div>
-            <span class="source-badge ai" id="badge-datetime">🤖 Kế thừa AI</span>
+            <span class="source-badge ai" id="badge-datetime">⚪ Để trống (Lấy theo AI)</span>
           </div>
           <div class="field-cols">
             <div class="ai-evidence-box">
@@ -1895,8 +1892,7 @@ tr:hover td { background: rgba(255,255,255,0.02); cursor: pointer; }
               <span class="ai-evidence-val" id="ocr-datetime">–</span>
             </div>
             <div class="admin-input-wrap">
-              <input type="text" class="input-box" id="inp-datetime" placeholder="YYYY-MM-DD HH:mm:ss">
-              <button class="btn-revert-ai" id="btn-revert-datetime" title="Khôi phục về giá trị AI gốc">↺ Lấy AI</button>
+              <input type="text" class="input-box" id="inp-datetime" placeholder="(Để trống nếu AI đọc đúng: YYYY-MM-DD HH:mm:ss)">
             </div>
           </div>
           <div class="field-final-preview">
@@ -2521,12 +2517,23 @@ function showBill(idx) {
   const inpTotal = document.getElementById("inp-total");
   const inpBillNo = document.getElementById("inp-billno");
   const inpDateTime = document.getElementById("inp-datetime");
-  const inpNote = document.getElementById("inp-note");
+  // Editable Form inputs (Admin Override)
+  // NGUYÊN TẮC: KHÔNG ĐƯỢC MANG DATA AI QUA CỘT ADMIN!
+  // Mặc định ô nhập của Admin ĐỂ TRỐNG nếu Admin chưa từng sửa trường này.
+  const isOutletEdited = Boolean(b.IsManualEdited && b.FinalOutletName && b.OcrOutletName && b.FinalOutletName.toLowerCase() !== b.OcrOutletName.toLowerCase());
+  inpOutlet.value = isOutletEdited ? b.FinalOutletName : "";
 
-  inpOutlet.value = b.FinalOutletName || b.OcrOutletName || "";
-  inpTotal.value = (b.FinalTotal !== null ? b.FinalTotal : b.OcrTotal || 0).toLocaleString("vi-VN");
-  inpBillNo.value = b.FinalBillNumber || b.OcrBillNumber || "";
-  inpDateTime.value = b.FinalDateTime ? b.FinalDateTime.replace("T", " ") : (b.OcrDateTime ? b.OcrDateTime.replace("T", " ") : "");
+  const isTotalEdited = Boolean(b.IsManualEdited && b.FinalTotal !== null && b.FinalTotal !== b.OcrTotal);
+  inpTotal.value = isTotalEdited ? b.FinalTotal.toLocaleString("vi-VN") : "";
+
+  const isBillNoEdited = Boolean(b.IsManualEdited && b.FinalBillNumber && b.OcrBillNumber && b.FinalBillNumber !== b.OcrBillNumber);
+  inpBillNo.value = isBillNoEdited ? b.FinalBillNumber : "";
+
+  const aiDtStr = (b.OcrDateTime || "").replace("T", " ");
+  const finalDtStr = (b.FinalDateTime || "").replace("T", " ");
+  const isDateTimeEdited = Boolean(b.IsManualEdited && finalDtStr && aiDtStr && finalDtStr !== aiDtStr);
+  inpDateTime.value = isDateTimeEdited ? finalDtStr : "";
+
   inpNote.value = "";
 
   // Requirement 3: Lock if APPROVED or REJECTED & Change styling
@@ -2585,83 +2592,80 @@ function checkDiff(b) {
   // 1. Outlet
   const aiOutlet = b.OcrOutletName || "";
   const curOutlet = document.getElementById("inp-outlet-name").value.trim();
-  const isOutletEdited = Boolean(curOutlet && aiOutlet && curOutlet.toLowerCase() !== aiOutlet.toLowerCase());
+  const hasAdminOutlet = curOutlet !== "";
   const cardOutlet = document.getElementById("card-outlet");
   const badgeOutlet = document.getElementById("badge-outlet");
   const finalOutlet = document.getElementById("final-outlet-preview");
-  const btnRevertOutlet = document.getElementById("btn-revert-outlet");
 
   if (cardOutlet && badgeOutlet && finalOutlet) {
-    cardOutlet.classList.toggle("is-edited", isOutletEdited);
-    badgeOutlet.className = `source-badge ${isOutletEdited ? 'edited' : 'ai'}`;
-    badgeOutlet.innerHTML = isOutletEdited ? `✍️ Sửa tay` : `🤖 Kế thừa AI`;
-    finalOutlet.textContent = curOutlet || aiOutlet || "–";
-    finalOutlet.style.color = isOutletEdited ? "#ffb86c" : "var(--text-main)";
-    if (btnRevertOutlet) btnRevertOutlet.style.display = isOutletEdited ? "block" : "none";
+    cardOutlet.classList.toggle("is-edited", hasAdminOutlet);
+    badgeOutlet.className = `source-badge ${hasAdminOutlet ? 'edited' : 'ai'}`;
+    badgeOutlet.innerHTML = hasAdminOutlet ? `✍️ Admin đã nhập` : `⚪ Để trống (Lấy theo AI)`;
+    finalOutlet.innerHTML = hasAdminOutlet 
+      ? `<span style="color:#ffb86c; font-weight:700;">${curOutlet}</span> <span style="font-size:11px; color:#ffb86c; margin-left:6px;">(Theo Admin)</span>`
+      : `<span style="color:var(--text-main); font-weight:600;">${aiOutlet || "–"}</span> <span style="font-size:11px; color:var(--accent); margin-left:6px;">(Theo AI)</span>`;
   }
 
   // 2. Total
   const aiTotal = b.OcrTotal || 0;
-  const curTotal = parseInt(document.getElementById("inp-total").value.replace(/[^0-9]/g, "")) || 0;
-  const isTotalEdited = curTotal !== aiTotal;
+  const rawTotalStr = document.getElementById("inp-total").value.trim();
+  const hasAdminTotal = rawTotalStr !== "";
+  const curTotal = hasAdminTotal ? (parseInt(rawTotalStr.replace(/[^0-9]/g, ""), 10) || 0) : null;
   const cardTotal = document.getElementById("card-total");
   const badgeTotal = document.getElementById("badge-total");
   const finalTotal = document.getElementById("final-total-preview");
-  const btnRevertTotal = document.getElementById("btn-revert-total");
 
   if (cardTotal && badgeTotal && finalTotal) {
-    cardTotal.classList.toggle("is-edited", isTotalEdited);
-    badgeTotal.className = `source-badge ${isTotalEdited ? 'edited' : 'ai'}`;
-    badgeTotal.innerHTML = isTotalEdited ? `✍️ Sửa tay` : `🤖 Kế thừa AI`;
-    finalTotal.textContent = (curTotal !== 0 ? curTotal : aiTotal).toLocaleString("vi-VN") + " VNĐ";
-    finalTotal.style.color = isTotalEdited ? "#ffb86c" : "var(--accent)";
-    if (btnRevertTotal) btnRevertTotal.style.display = isTotalEdited ? "block" : "none";
+    cardTotal.classList.toggle("is-edited", hasAdminTotal);
+    badgeTotal.className = `source-badge ${hasAdminTotal ? 'edited' : 'ai'}`;
+    badgeTotal.innerHTML = hasAdminTotal ? `✍️ Admin đã nhập` : `⚪ Để trống (Lấy theo AI)`;
+    finalTotal.innerHTML = hasAdminTotal
+      ? `<span style="color:#ffb86c; font-weight:700; font-size:13.5px;">${curTotal.toLocaleString("vi-VN")} VNĐ</span> <span style="font-size:11px; color:#ffb86c; margin-left:6px;">(Theo Admin)</span>`
+      : `<span style="color:var(--accent); font-weight:700; font-size:13.5px;">${aiTotal.toLocaleString("vi-VN")} VNĐ</span> <span style="font-size:11px; color:var(--accent); margin-left:6px;">(Theo AI)</span>`;
   }
 
-  diffAlert.classList.toggle("active", isTotalEdited);
-  document.getElementById("inp-total").classList.toggle("diff-highlight", isTotalEdited);
+  diffAlert.classList.toggle("active", hasAdminTotal && curTotal !== aiTotal);
+  document.getElementById("inp-total").classList.toggle("diff-highlight", hasAdminTotal && curTotal !== aiTotal);
 
   // 3. Bill Number
   const aiBillNo = b.OcrBillNumber || "";
   const curBillNo = document.getElementById("inp-billno").value.trim();
-  const isBillNoEdited = Boolean(curBillNo && aiBillNo && curBillNo !== aiBillNo);
+  const hasAdminBillNo = curBillNo !== "";
   const cardBillNo = document.getElementById("card-billno");
   const badgeBillNo = document.getElementById("badge-billno");
   const finalBillNo = document.getElementById("final-billno-preview");
-  const btnRevertBillNo = document.getElementById("btn-revert-billno");
 
   if (cardBillNo && badgeBillNo && finalBillNo) {
-    cardBillNo.classList.toggle("is-edited", isBillNoEdited);
-    badgeBillNo.className = `source-badge ${isBillNoEdited ? 'edited' : 'ai'}`;
-    badgeBillNo.innerHTML = isBillNoEdited ? `✍️ Sửa tay` : `🤖 Kế thừa AI`;
-    finalBillNo.textContent = curBillNo || aiBillNo || "–";
-    finalBillNo.style.color = isBillNoEdited ? "#ffb86c" : "var(--text-main)";
-    if (btnRevertBillNo) btnRevertBillNo.style.display = isBillNoEdited ? "block" : "none";
+    cardBillNo.classList.toggle("is-edited", hasAdminBillNo);
+    badgeBillNo.className = `source-badge ${hasAdminBillNo ? 'edited' : 'ai'}`;
+    badgeBillNo.innerHTML = hasAdminBillNo ? `✍️ Admin đã nhập` : `⚪ Để trống (Lấy theo AI)`;
+    finalBillNo.innerHTML = hasAdminBillNo
+      ? `<span style="color:#ffb86c; font-family:monospace; font-weight:700;">${curBillNo}</span> <span style="font-size:11px; color:#ffb86c; margin-left:6px;">(Theo Admin)</span>`
+      : `<span style="color:var(--text-main); font-family:monospace; font-weight:600;">${aiBillNo || "–"}</span> <span style="font-size:11px; color:var(--accent); margin-left:6px;">(Theo AI)</span>`;
   }
 
   // 4. DateTime
   const aiDateTime = (b.OcrDateTime || "").replace("T", " ");
   const curDateTime = document.getElementById("inp-datetime").value.trim();
-  const isDateTimeEdited = Boolean(curDateTime && aiDateTime && curDateTime !== aiDateTime);
+  const hasAdminDateTime = curDateTime !== "";
   const cardDateTime = document.getElementById("card-datetime");
   const badgeDateTime = document.getElementById("badge-datetime");
   const finalDateTime = document.getElementById("final-datetime-preview");
-  const btnRevertDateTime = document.getElementById("btn-revert-datetime");
 
   if (cardDateTime && badgeDateTime && finalDateTime) {
-    cardDateTime.classList.toggle("is-edited", isDateTimeEdited);
-    badgeDateTime.className = `source-badge ${isDateTimeEdited ? 'edited' : 'ai'}`;
-    badgeDateTime.innerHTML = isDateTimeEdited ? `✍️ Sửa tay` : `🤖 Kế thừa AI`;
-    finalDateTime.textContent = curDateTime || aiDateTime || "–";
-    finalDateTime.style.color = isDateTimeEdited ? "#ffb86c" : "var(--text-main)";
-    if (btnRevertDateTime) btnRevertDateTime.style.display = isDateTimeEdited ? "block" : "none";
+    cardDateTime.classList.toggle("is-edited", hasAdminDateTime);
+    badgeDateTime.className = `source-badge ${hasAdminDateTime ? 'edited' : 'ai'}`;
+    badgeDateTime.innerHTML = hasAdminDateTime ? `✍️ Admin đã nhập` : `⚪ Để trống (Lấy theo AI)`;
+    finalDateTime.innerHTML = hasAdminDateTime
+      ? `<span style="color:#ffb86c; font-weight:700;">${curDateTime}</span> <span style="font-size:11px; color:#ffb86c; margin-left:6px;">(Theo Admin)</span>`
+      : `<span style="color:var(--text-main); font-weight:600;">${aiDateTime || "–"}</span> <span style="font-size:11px; color:var(--accent); margin-left:6px;">(Theo AI)</span>`;
   }
 }
 
 // Input event listeners for real-time diff & final preview
 document.getElementById("inp-total").addEventListener("input", e => {
-  const digits = e.target.value.replace(/[^0-9]/g, "");
-  e.target.value = digits ? parseInt(digits, 10).toLocaleString("vi-VN") : "0";
+  const raw = e.target.value.replace(/[^0-9]/g, "");
+  e.target.value = raw ? parseInt(raw, 10).toLocaleString("vi-VN") : "";
   if (allBills[currentIdx]) checkDiff(allBills[currentIdx]);
 });
 document.getElementById("inp-outlet-name").addEventListener("input", () => {
@@ -2672,36 +2676,6 @@ document.getElementById("inp-billno").addEventListener("input", () => {
 });
 document.getElementById("inp-datetime").addEventListener("input", () => {
   if (allBills[currentIdx]) checkDiff(allBills[currentIdx]);
-});
-
-// Revert to AI buttons
-document.getElementById("btn-revert-outlet")?.addEventListener("click", () => {
-  const b = allBills[currentIdx];
-  if (b) {
-    document.getElementById("inp-outlet-name").value = b.OcrOutletName || "";
-    checkDiff(b);
-  }
-});
-document.getElementById("btn-revert-total")?.addEventListener("click", () => {
-  const b = allBills[currentIdx];
-  if (b) {
-    document.getElementById("inp-total").value = (b.OcrTotal || 0).toLocaleString("vi-VN");
-    checkDiff(b);
-  }
-});
-document.getElementById("btn-revert-billno")?.addEventListener("click", () => {
-  const b = allBills[currentIdx];
-  if (b) {
-    document.getElementById("inp-billno").value = b.OcrBillNumber || "";
-    checkDiff(b);
-  }
-});
-document.getElementById("btn-revert-datetime")?.addEventListener("click", () => {
-  const b = allBills[currentIdx];
-  if (b) {
-    document.getElementById("inp-datetime").value = (b.OcrDateTime || "").replace("T", " ");
-    checkDiff(b);
-  }
 });
 
 function showToast(type, title, message, durationMs = 4500) {
@@ -2973,23 +2947,37 @@ async function saveEdits(showPrompt = true) {
   }
 
   try {
-    const total = parseInt(document.getElementById("inp-total").value.replace(/[^0-9]/g, "")) || 0;
-    const outletName = document.getElementById("inp-outlet-name").value.trim();
-    const billNo = document.getElementById("inp-billno").value.trim();
-    const dt = document.getElementById("inp-datetime").value.trim();
+    const rawTotalStr = document.getElementById("inp-total").value.trim();
+    const rawOutlet = document.getElementById("inp-outlet-name").value.trim();
+    const rawBillNo = document.getElementById("inp-billno").value.trim();
+    const rawDt = document.getElementById("inp-datetime").value.trim();
     const note = document.getElementById("inp-note").value.trim();
 
+    // NGUYÊN TẮC: KHÔNG ĐƯỢC MANG DATA AI QUA CỘT ADMIN!
+    // Nếu ô nhập trống => Admin KHÔNG sửa trường này => admin* = null!
+    const adminTotal = rawTotalStr !== "" ? (parseInt(rawTotalStr.replace(/[^0-9]/g, ""), 10) || 0) : null;
+    const adminOutlet = rawOutlet !== "" ? rawOutlet : null;
+    const adminBillNo = rawBillNo !== "" ? rawBillNo : null;
+    const adminDateTime = rawDt !== "" ? rawDt : null;
+
+    // Kết quả Final là phép tính query COALESCE(Admin, AI):
+    // Nếu có Admin thì lấy Admin, nếu không thì lấy AI:
+    const finalTotal = adminTotal !== null ? adminTotal : (b.OcrTotal || 0);
+    const finalOutlet = adminOutlet !== null ? adminOutlet : (b.OcrOutletName || "");
+    const finalBillNo = adminBillNo !== null ? adminBillNo : (b.OcrBillNumber || "");
+    const finalDateTime = adminDateTime !== null ? adminDateTime : (b.OcrDateTime ? b.OcrDateTime.replace("T", " ") : "");
+
     // Find outlet number if matching master outlets
-    const matched = masterOutlets.find(o => o.outlet_name.toLowerCase() === outletName.toLowerCase());
+    const matched = masterOutlets.find(o => o.outlet_name.toLowerCase() === finalOutlet.toLowerCase());
     const outletNum = matched ? matched.outlet_number : b.FinalOutletNumber;
     const currentUser = getCurrentUser();
 
     const payload = {
-      final_outlet_name: outletName,
+      final_outlet_name: finalOutlet,
       final_outlet_number: outletNum,
-      final_total: total,
-      final_bill_number: billNo,
-      final_datetime: dt,
+      final_total: finalTotal,
+      final_bill_number: finalBillNo,
+      final_datetime: finalDateTime,
       actor: currentUser,
       note: note
     };
@@ -3006,10 +2994,11 @@ async function saveEdits(showPrompt = true) {
     const result = await res.json().catch(() => ({}));
 
     if (res.ok) {
-      b.FinalOutletName = outletName;
-      b.FinalTotal = total;
-      b.FinalBillNumber = billNo;
-      b.FinalDateTime = dt;
+      b.FinalOutletName = finalOutlet;
+      b.FinalTotal = finalTotal;
+      b.FinalBillNumber = finalBillNo;
+      b.FinalDateTime = finalDateTime;
+      b.IsManualEdited = (adminTotal !== null || adminOutlet !== null || adminBillNo !== null || adminDateTime !== null) ? 1 : 0;
       checkDiff(b);
 
       const numChanged = result.fields_changed !== undefined ? result.fields_changed : 1;
@@ -3026,7 +3015,7 @@ async function saveEdits(showPrompt = true) {
         }
 
         const nowStr = new Date().toLocaleTimeString("vi-VN");
-        const formattedTotal = total.toLocaleString("vi-VN") + " VNĐ";
+        const formattedTotal = finalTotal.toLocaleString("vi-VN") + " VNĐ";
 
         // POPUP MESSAGE THÔNG BÁO LƯU THÀNH CÔNG RÕ RÀNG
         showPopupMessage({
@@ -3040,19 +3029,39 @@ async function saveEdits(showPrompt = true) {
             <table style="width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 12px; background: rgba(255,255,255,0.03); border-radius: 6px; overflow: hidden;">
               <tr style="border-bottom: 1px solid rgba(255,255,255,0.06);">
                 <td style="padding: 7px 10px; color: var(--text-dim); width: 38%;">Cửa hàng / Gian hàng:</td>
-                <td style="padding: 7px 10px; font-weight: 600; color: var(--text-main);">${outletName || "–"}</td>
+                <td style="padding: 7px 10px; font-weight: 600; color: var(--text-main);">
+                  ${finalOutlet || "–"} 
+                  <span style="font-size: 11px; margin-left: 6px; color: ${adminOutlet ? '#ffb86c' : 'var(--accent)'};">
+                    (${adminOutlet ? '✍️ Admin nhập' : '🤖 Kế thừa AI'})
+                  </span>
+                </td>
               </tr>
               <tr style="border-bottom: 1px solid rgba(255,255,255,0.06);">
                 <td style="padding: 7px 10px; color: var(--text-dim);">Số tiền hợp lệ:</td>
-                <td style="padding: 7px 10px; font-weight: 700; color: var(--accent); font-size: 13px;">${formattedTotal}</td>
+                <td style="padding: 7px 10px; font-weight: 700; color: var(--accent); font-size: 13px;">
+                  ${formattedTotal}
+                  <span style="font-size: 11px; margin-left: 6px; color: ${adminTotal !== null ? '#ffb86c' : 'var(--accent)'};">
+                    (${adminTotal !== null ? '✍️ Admin nhập' : '🤖 Kế thừa AI'})
+                  </span>
+                </td>
               </tr>
               <tr style="border-bottom: 1px solid rgba(255,255,255,0.06);">
                 <td style="padding: 7px 10px; color: var(--text-dim);">Mã số hóa đơn:</td>
-                <td style="padding: 7px 10px; font-family: monospace; color: var(--text-main); font-weight: 600;">${billNo || "–"}</td>
+                <td style="padding: 7px 10px; font-family: monospace; color: var(--text-main); font-weight: 600;">
+                  ${finalBillNo || "–"}
+                  <span style="font-size: 11px; margin-left: 6px; color: ${adminBillNo ? '#ffb86c' : 'var(--accent)'};">
+                    (${adminBillNo ? '✍️ Admin nhập' : '🤖 Kế thừa AI'})
+                  </span>
+                </td>
               </tr>
               <tr style="border-bottom: 1px solid rgba(255,255,255,0.06);">
                 <td style="padding: 7px 10px; color: var(--text-dim);">Ngày giờ giao dịch:</td>
-                <td style="padding: 7px 10px; color: var(--text-main);">${dt || "–"}</td>
+                <td style="padding: 7px 10px; color: var(--text-main);">
+                  ${finalDateTime || "–"}
+                  <span style="font-size: 11px; margin-left: 6px; color: ${adminDateTime ? '#ffb86c' : 'var(--accent)'};">
+                    (${adminDateTime ? '✍️ Admin nhập' : '🤖 Kế thừa AI'})
+                  </span>
+                </td>
               </tr>
               ${note ? `
               <tr>
@@ -3062,7 +3071,7 @@ async function saveEdits(showPrompt = true) {
               ` : ''}
             </table>
             <div style="font-size: 11.5px; color: var(--text-dim); border-top: 1px dashed var(--border); padding-top: 8px;">
-              📝 Nhân viên thực hiện: <b>${currentUser}</b> • Lịch sử kiểm toán đã cập nhật.
+              📝 Nhân viên thực hiện: <b>${currentUser}</b> • Quy tắc Coalesce: Không sao chép hay ghi đè dữ liệu AI gốc.
             </div>
           `
         });
