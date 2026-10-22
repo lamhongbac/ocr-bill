@@ -1398,6 +1398,130 @@ main { flex: 1; display: flex; overflow: hidden; position: relative; }
   to { opacity: 1; transform: translateY(0); }
 }
 
+/* Coalesce & 3-Tier Audit Comparison Styles */
+.coalesce-guide-box {
+  background: rgba(56, 189, 248, 0.08);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  border-radius: 8px;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #bae6fd;
+}
+.audit-field-card {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: all 0.2s;
+}
+.audit-field-card:hover {
+  border-color: rgba(255, 255, 255, 0.16);
+}
+.audit-field-card.is-edited {
+  border-color: rgba(255, 184, 108, 0.45);
+  background: rgba(255, 184, 108, 0.035);
+}
+.field-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.field-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-main);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.source-badge {
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.source-badge.ai {
+  background: rgba(56, 189, 248, 0.12);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+}
+.source-badge.edited {
+  background: rgba(255, 184, 108, 0.15);
+  color: #ffb86c;
+  border: 1px solid rgba(255, 184, 108, 0.4);
+}
+.field-cols {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.ai-evidence-box {
+  width: 42%;
+  min-width: 140px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 7px;
+  padding: 7px 10px;
+  font-size: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.ai-evidence-label {
+  font-size: 10px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.ai-evidence-val {
+  color: var(--accent);
+  font-weight: 600;
+  word-break: break-all;
+}
+.admin-input-wrap {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.btn-revert-ai {
+  position: absolute;
+  right: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: var(--text-muted);
+  font-size: 10.5px;
+  padding: 3px 7px;
+  border-radius: 5px;
+  cursor: pointer;
+  display: none;
+  transition: all 0.15s;
+}
+.btn-revert-ai:hover {
+  background: var(--accent);
+  color: #000;
+}
+.field-final-preview {
+  font-size: 11.5px;
+  color: var(--text-dim);
+  display: flex;
+  justify-content: space-between;
+  padding-top: 4px;
+  border-top: 1px dashed rgba(255, 255, 255, 0.06);
+}
+.field-final-val {
+  font-weight: 700;
+  color: var(--text-main);
+}
+
 /* Toast Notifications Container (Modern floating alerts) */
 .toast-container {
   position: fixed;
@@ -1684,42 +1808,109 @@ tr:hover td { background: rgba(255,255,255,0.02); cursor: pointer; }
           <button id="btn-close-save-banner" style="background:none; border:none; color:inherit; font-size:16px; cursor:pointer; opacity:0.7;" title="Đóng thông báo">✕</button>
         </div>
 
-        <div class="form-group">
-          <label class="form-label">
-            <span>Cửa hàng / Gian hàng (Outlet)</span>
-            <span class="ocr-hint">AI đọc: <b id="ocr-outlet">–</b></span>
-          </label>
-          <input list="outlets-datalist" class="input-box" id="inp-outlet-name" placeholder="Tìm tên cửa hàng...">
-          <datalist id="outlets-datalist"></datalist>
+        <!-- Coalesce Rule Notice -->
+        <div class="coalesce-guide-box">
+          <span style="font-size: 18px;">⚖️</span>
+          <div style="flex: 1; font-size: 11.5px; line-height: 1.45;">
+            <b>Quy tắc kiểm toán Coalesce:</b> Dữ liệu AI gốc luôn được lưu trữ bất biến. Nếu Admin để trống hoặc không sửa, hệ thống sẽ <b>tự động kế thừa</b> giá trị của AI để ra kết quả Final.
+          </div>
         </div>
 
-        <div class="form-group">
-          <label class="form-label">
-            <span>Số tiền thanh toán hợp lệ (VNĐ)</span>
-            <span class="ocr-hint">AI đọc: <b id="ocr-total">–</b></span>
-          </label>
-          <input type="text" class="input-box amount-input" id="inp-total" placeholder="0">
+        <!-- 1. Outlet Card -->
+        <div class="audit-field-card" id="card-outlet">
+          <div class="field-header">
+            <div class="field-title">🏬 Cửa hàng / Gian hàng (Outlet)</div>
+            <span class="source-badge ai" id="badge-outlet">🤖 Kế thừa AI</span>
+          </div>
+          <div class="field-cols">
+            <div class="ai-evidence-box">
+              <span class="ai-evidence-label">🤖 AI Gốc (Bất biến)</span>
+              <span class="ai-evidence-val" id="ocr-outlet">–</span>
+            </div>
+            <div class="admin-input-wrap">
+              <input list="outlets-datalist" class="input-box" id="inp-outlet-name" placeholder="Để trống = Kế thừa số liệu AI...">
+              <datalist id="outlets-datalist"></datalist>
+              <button class="btn-revert-ai" id="btn-revert-outlet" title="Khôi phục về giá trị AI gốc">↺ Lấy AI</button>
+            </div>
+          </div>
+          <div class="field-final-preview">
+            <span>➡️ Chốt (Final):</span>
+            <span class="field-final-val" id="final-outlet-preview">–</span>
+          </div>
         </div>
 
-        <div class="form-group">
-          <label class="form-label">
-            <span>Mã số hóa đơn (Bill No)</span>
-            <span class="ocr-hint">AI đọc: <b id="ocr-billno">–</b></span>
-          </label>
-          <input type="text" class="input-box" id="inp-billno" placeholder="Số bill...">
+        <!-- 2. Total Amount Card -->
+        <div class="audit-field-card" id="card-total">
+          <div class="field-header">
+            <div class="field-title">💰 Số tiền thanh toán hợp lệ (VNĐ)</div>
+            <span class="source-badge ai" id="badge-total">🤖 Kế thừa AI</span>
+          </div>
+          <div class="field-cols">
+            <div class="ai-evidence-box">
+              <span class="ai-evidence-label">🤖 AI Gốc (Bất biến)</span>
+              <span class="ai-evidence-val" id="ocr-total">0 đ</span>
+            </div>
+            <div class="admin-input-wrap">
+              <input type="text" class="input-box amount-input" id="inp-total" placeholder="0">
+              <button class="btn-revert-ai" id="btn-revert-total" title="Khôi phục về giá trị AI gốc">↺ Lấy AI</button>
+            </div>
+          </div>
+          <div class="field-final-preview">
+            <span>➡️ Chốt (Final):</span>
+            <span class="field-final-val" id="final-total-preview" style="color: var(--accent); font-size: 13.5px;">0 VNĐ</span>
+          </div>
         </div>
 
-        <div class="form-group">
-          <label class="form-label">
-            <span>Ngày giờ giao dịch</span>
-            <span class="ocr-hint">AI đọc: <b id="ocr-datetime">–</b></span>
-          </label>
-          <input type="text" class="input-box" id="inp-datetime" placeholder="YYYY-MM-DD HH:mm:ss">
+        <!-- 3. Bill Number Card -->
+        <div class="audit-field-card" id="card-billno">
+          <div class="field-header">
+            <div class="field-title">🧾 Mã số hóa đơn (Bill No)</div>
+            <span class="source-badge ai" id="badge-billno">🤖 Kế thừa AI</span>
+          </div>
+          <div class="field-cols">
+            <div class="ai-evidence-box">
+              <span class="ai-evidence-label">🤖 AI Gốc (Bất biến)</span>
+              <span class="ai-evidence-val" id="ocr-billno">–</span>
+            </div>
+            <div class="admin-input-wrap">
+              <input type="text" class="input-box" id="inp-billno" placeholder="Để trống = Kế thừa số liệu AI...">
+              <button class="btn-revert-ai" id="btn-revert-billno" title="Khôi phục về giá trị AI gốc">↺ Lấy AI</button>
+            </div>
+          </div>
+          <div class="field-final-preview">
+            <span>➡️ Chốt (Final):</span>
+            <span class="field-final-val" id="final-billno-preview" style="font-family: monospace;">–</span>
+          </div>
         </div>
 
-        <div class="form-group">
-          <label class="form-label">Ghi chú điều chỉnh (Auditor note)</label>
-          <input type="text" class="input-box" id="inp-note" placeholder="Nhập lý do nếu có sửa đổi...">
+        <!-- 4. DateTime Card -->
+        <div class="audit-field-card" id="card-datetime">
+          <div class="field-header">
+            <div class="field-title">🕒 Ngày giờ giao dịch</div>
+            <span class="source-badge ai" id="badge-datetime">🤖 Kế thừa AI</span>
+          </div>
+          <div class="field-cols">
+            <div class="ai-evidence-box">
+              <span class="ai-evidence-label">🤖 AI Gốc (Bất biến)</span>
+              <span class="ai-evidence-val" id="ocr-datetime">–</span>
+            </div>
+            <div class="admin-input-wrap">
+              <input type="text" class="input-box" id="inp-datetime" placeholder="YYYY-MM-DD HH:mm:ss">
+              <button class="btn-revert-ai" id="btn-revert-datetime" title="Khôi phục về giá trị AI gốc">↺ Lấy AI</button>
+            </div>
+          </div>
+          <div class="field-final-preview">
+            <span>➡️ Chốt (Final):</span>
+            <span class="field-final-val" id="final-datetime-preview">–</span>
+          </div>
+        </div>
+
+        <!-- 5. Auditor Note -->
+        <div class="form-group" style="margin-top: 2px;">
+          <label class="form-label">
+            <span>📝 Ghi chú điều chỉnh (Auditor note - Bắt buộc khi có sửa đổi)</span>
+          </label>
+          <input type="text" class="input-box" id="inp-note" placeholder="Nhập lý do điều chỉnh nếu có can thiệp số liệu...">
         </div>
       </div>
 
@@ -2389,16 +2580,128 @@ function applyLockState(b) {
 }
 
 function checkDiff(b) {
-  const currentTotal = parseInt(document.getElementById("inp-total").value.replace(/[^0-9]/g, "")) || 0;
-  const isDiff = currentTotal !== (b.OcrTotal || 0);
-  diffAlert.classList.toggle("active", isDiff);
-  document.getElementById("inp-total").classList.toggle("diff-highlight", isDiff);
+  if (!b) return;
+
+  // 1. Outlet
+  const aiOutlet = b.OcrOutletName || "";
+  const curOutlet = document.getElementById("inp-outlet-name").value.trim();
+  const isOutletEdited = Boolean(curOutlet && aiOutlet && curOutlet.toLowerCase() !== aiOutlet.toLowerCase());
+  const cardOutlet = document.getElementById("card-outlet");
+  const badgeOutlet = document.getElementById("badge-outlet");
+  const finalOutlet = document.getElementById("final-outlet-preview");
+  const btnRevertOutlet = document.getElementById("btn-revert-outlet");
+
+  if (cardOutlet && badgeOutlet && finalOutlet) {
+    cardOutlet.classList.toggle("is-edited", isOutletEdited);
+    badgeOutlet.className = `source-badge ${isOutletEdited ? 'edited' : 'ai'}`;
+    badgeOutlet.innerHTML = isOutletEdited ? `✍️ Sửa tay` : `🤖 Kế thừa AI`;
+    finalOutlet.textContent = curOutlet || aiOutlet || "–";
+    finalOutlet.style.color = isOutletEdited ? "#ffb86c" : "var(--text-main)";
+    if (btnRevertOutlet) btnRevertOutlet.style.display = isOutletEdited ? "block" : "none";
+  }
+
+  // 2. Total
+  const aiTotal = b.OcrTotal || 0;
+  const curTotal = parseInt(document.getElementById("inp-total").value.replace(/[^0-9]/g, "")) || 0;
+  const isTotalEdited = curTotal !== aiTotal;
+  const cardTotal = document.getElementById("card-total");
+  const badgeTotal = document.getElementById("badge-total");
+  const finalTotal = document.getElementById("final-total-preview");
+  const btnRevertTotal = document.getElementById("btn-revert-total");
+
+  if (cardTotal && badgeTotal && finalTotal) {
+    cardTotal.classList.toggle("is-edited", isTotalEdited);
+    badgeTotal.className = `source-badge ${isTotalEdited ? 'edited' : 'ai'}`;
+    badgeTotal.innerHTML = isTotalEdited ? `✍️ Sửa tay` : `🤖 Kế thừa AI`;
+    finalTotal.textContent = (curTotal !== 0 ? curTotal : aiTotal).toLocaleString("vi-VN") + " VNĐ";
+    finalTotal.style.color = isTotalEdited ? "#ffb86c" : "var(--accent)";
+    if (btnRevertTotal) btnRevertTotal.style.display = isTotalEdited ? "block" : "none";
+  }
+
+  diffAlert.classList.toggle("active", isTotalEdited);
+  document.getElementById("inp-total").classList.toggle("diff-highlight", isTotalEdited);
+
+  // 3. Bill Number
+  const aiBillNo = b.OcrBillNumber || "";
+  const curBillNo = document.getElementById("inp-billno").value.trim();
+  const isBillNoEdited = Boolean(curBillNo && aiBillNo && curBillNo !== aiBillNo);
+  const cardBillNo = document.getElementById("card-billno");
+  const badgeBillNo = document.getElementById("badge-billno");
+  const finalBillNo = document.getElementById("final-billno-preview");
+  const btnRevertBillNo = document.getElementById("btn-revert-billno");
+
+  if (cardBillNo && badgeBillNo && finalBillNo) {
+    cardBillNo.classList.toggle("is-edited", isBillNoEdited);
+    badgeBillNo.className = `source-badge ${isBillNoEdited ? 'edited' : 'ai'}`;
+    badgeBillNo.innerHTML = isBillNoEdited ? `✍️ Sửa tay` : `🤖 Kế thừa AI`;
+    finalBillNo.textContent = curBillNo || aiBillNo || "–";
+    finalBillNo.style.color = isBillNoEdited ? "#ffb86c" : "var(--text-main)";
+    if (btnRevertBillNo) btnRevertBillNo.style.display = isBillNoEdited ? "block" : "none";
+  }
+
+  // 4. DateTime
+  const aiDateTime = (b.OcrDateTime || "").replace("T", " ");
+  const curDateTime = document.getElementById("inp-datetime").value.trim();
+  const isDateTimeEdited = Boolean(curDateTime && aiDateTime && curDateTime !== aiDateTime);
+  const cardDateTime = document.getElementById("card-datetime");
+  const badgeDateTime = document.getElementById("badge-datetime");
+  const finalDateTime = document.getElementById("final-datetime-preview");
+  const btnRevertDateTime = document.getElementById("btn-revert-datetime");
+
+  if (cardDateTime && badgeDateTime && finalDateTime) {
+    cardDateTime.classList.toggle("is-edited", isDateTimeEdited);
+    badgeDateTime.className = `source-badge ${isDateTimeEdited ? 'edited' : 'ai'}`;
+    badgeDateTime.innerHTML = isDateTimeEdited ? `✍️ Sửa tay` : `🤖 Kế thừa AI`;
+    finalDateTime.textContent = curDateTime || aiDateTime || "–";
+    finalDateTime.style.color = isDateTimeEdited ? "#ffb86c" : "var(--text-main)";
+    if (btnRevertDateTime) btnRevertDateTime.style.display = isDateTimeEdited ? "block" : "none";
+  }
 }
 
+// Input event listeners for real-time diff & final preview
 document.getElementById("inp-total").addEventListener("input", e => {
   const digits = e.target.value.replace(/[^0-9]/g, "");
   e.target.value = digits ? parseInt(digits, 10).toLocaleString("vi-VN") : "0";
   if (allBills[currentIdx]) checkDiff(allBills[currentIdx]);
+});
+document.getElementById("inp-outlet-name").addEventListener("input", () => {
+  if (allBills[currentIdx]) checkDiff(allBills[currentIdx]);
+});
+document.getElementById("inp-billno").addEventListener("input", () => {
+  if (allBills[currentIdx]) checkDiff(allBills[currentIdx]);
+});
+document.getElementById("inp-datetime").addEventListener("input", () => {
+  if (allBills[currentIdx]) checkDiff(allBills[currentIdx]);
+});
+
+// Revert to AI buttons
+document.getElementById("btn-revert-outlet")?.addEventListener("click", () => {
+  const b = allBills[currentIdx];
+  if (b) {
+    document.getElementById("inp-outlet-name").value = b.OcrOutletName || "";
+    checkDiff(b);
+  }
+});
+document.getElementById("btn-revert-total")?.addEventListener("click", () => {
+  const b = allBills[currentIdx];
+  if (b) {
+    document.getElementById("inp-total").value = (b.OcrTotal || 0).toLocaleString("vi-VN");
+    checkDiff(b);
+  }
+});
+document.getElementById("btn-revert-billno")?.addEventListener("click", () => {
+  const b = allBills[currentIdx];
+  if (b) {
+    document.getElementById("inp-billno").value = b.OcrBillNumber || "";
+    checkDiff(b);
+  }
+});
+document.getElementById("btn-revert-datetime")?.addEventListener("click", () => {
+  const b = allBills[currentIdx];
+  if (b) {
+    document.getElementById("inp-datetime").value = (b.OcrDateTime || "").replace("T", " ");
+    checkDiff(b);
+  }
 });
 
 function showToast(type, title, message, durationMs = 4500) {

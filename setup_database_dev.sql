@@ -304,8 +304,17 @@ BEGIN
         OcrIsValid BIT NOT NULL DEFAULT 0,
         OcrLatency FLOAT NULL,
         OcrRawOutput NVARCHAR(MAX) NULL,
+
+        -- Dữ liệu Admin điều chỉnh (Admin Override - Mặc định NULL nếu không sửa)
+        AdminBrand NVARCHAR(100) NULL,
+        AdminOutletNumber NVARCHAR(50) NULL,
+        AdminOutletName NVARCHAR(250) NULL,
+        AdminBillNumber NVARCHAR(100) NULL,
+        AdminDateTime DATETIME NULL,
+        AdminTotal BIGINT NULL,
+        AdminNote NVARCHAR(500) NULL,
         
-        -- Dữ liệu duyệt chính thức (CRM Admin sửa hoặc xác nhận)
+        -- Dữ liệu duyệt chính thức (COALESCE: Có sửa lấy Admin, không sửa lấy AI)
         FinalOutletNumber NVARCHAR(50) NULL,
         FinalOutletName NVARCHAR(255) NULL,
         FinalBillNumber NVARCHAR(100) NULL,
@@ -339,6 +348,34 @@ BEGIN
     END
     PRINT N'4. Bảng OcrBills đã tồn tại.';
 END
+GO
+
+-- =======================================================================
+-- 4.1 VIEW v_OcrBillsFinal (Chuẩn hóa COALESCE cho CRM Query)
+-- =======================================================================
+IF EXISTS (SELECT * FROM sys.views WHERE name = 'v_OcrBillsFinal')
+    DROP VIEW v_OcrBillsFinal;
+GO
+
+CREATE VIEW v_OcrBillsFinal AS
+SELECT 
+    BillId, Filename, ImagePath, Status,
+    -- 1. AI Evidence (Bất biến)
+    OcrBrand, OcrOutletRaw, OcrOutletNumber, OcrOutletName, OcrMatchScore,
+    OcrBillNumber, OcrDateTime, OcrTotal, OcrIsValid, OcrLatency,
+    -- 2. Admin Override (NULL nếu không sửa)
+    AdminBrand, AdminOutletNumber, AdminOutletName, AdminBillNumber, AdminDateTime, AdminTotal, AdminNote,
+    -- 3. Final Computed (COALESCE: Ưu tiên Admin sửa, nếu không lấy AI)
+    COALESCE(AdminOutletNumber, FinalOutletNumber, OcrOutletNumber) AS FinalOutletNumber,
+    COALESCE(AdminOutletName, FinalOutletName, OcrOutletName) AS FinalOutletName,
+    COALESCE(AdminBillNumber, FinalBillNumber, OcrBillNumber) AS FinalBillNumber,
+    COALESCE(AdminDateTime, FinalDateTime, OcrDateTime) AS FinalDateTime,
+    COALESCE(AdminTotal, FinalTotal, OcrTotal) AS FinalTotal,
+    -- Cờ đánh dấu có can thiệp thủ công
+    CASE WHEN (AdminTotal IS NOT NULL OR AdminOutletName IS NOT NULL OR AdminBillNumber IS NOT NULL OR AdminDateTime IS NOT NULL OR IsManualEdited = 1) 
+         THEN 1 ELSE 0 END AS IsManualEdited,
+    ReviewedBy, ReviewedAt, RejectReason, FileHash, CreatedAt, UpdatedAt
+FROM OcrBills;
 GO
 
 -- =======================================================================
