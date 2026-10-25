@@ -24,6 +24,8 @@ Trong phiên làm việc ngày 25/10/2026, toàn bộ các mục tiêu tối ưu
 | **4** | **Nâng cấp API Dual Mode cho CRM (`/api/v1/extract-bill`)** | • Bổ sung khả năng nhận diện payload tự động tại endpoint `POST /api/v1/extract-bill`: Phục vụ đồng thời `multipart/form-data` (Upload file ảnh trực tiếp) và `application/json` (`{"image_base64": "..."}`).<br>• Giúp đội CRM dễ dàng tích hợp trên mọi nền tảng (.NET Framework, .NET Core, Java, Node.js, Mobile App) mà không cần xây dựng multipart parser phức tạp. | ✅ **HOÀN THÀNH** |
 | **5** | **Nhúng Mã nguồn Mẫu C# .NET Core Client** | • Xây dựng mã nguồn mẫu hoàn chỉnh C# .NET Core (`ExtractApiSampleNet.cs`) với đầy đủ DTOs, cấu hình `HttpClient`, xử lý mã hóa Base64 và parse JSON.<br>• Nhúng trực tiếp toàn bộ code mẫu vào tài liệu đặc tả tích hợp `docs/04_CRM_API_INTEGRATION_SPEC.md` để lập trình viên CRM có thể sao chép và chạy ngay. | ✅ **HOÀN THÀNH** |
 | **6** | **Tái cấu trúc Toàn diện Bộ Tài liệu Kỹ thuật** | • Quy hoạch thư mục `docs/` với 8 tài liệu đặc tả chuyên sâu từ 01 đến 08.<br>• Tinh gọn `HANDOFF_SYSTEM_GUIDE.md` thành Master Catalog Document tra cứu trung tâm.<br>• Gom toàn bộ tài liệu dự án vào `docs/`, dọn sạch thư mục gốc chỉ giữ lại 3 file cốt lõi: `DEV_PLAN.md`, `DEV_HISTORY.md`, `DAILY_REPORT.md`. | ✅ **HOÀN THÀNH** |
+| **7** | **Tổ chức Thư mục Scripts (`scripts/`) & Pipeline CI/CD** | • Tạo thư mục `scripts/` và gom toàn bộ scripts kiểm thử (`test_*.py`), script CSDL & migration (`sync_*.py`, `setup_database_dev.sql`, `migrate_coalesce_admin_fields.py`), worker ngầm (`cron_ocr_scanner.py`) và cấu hình Nginx.<br>• Chuẩn hóa tự động nhận diện `sys.path` cho toàn bộ các script để có thể thực thi độc lập từ mọi thư mục.<br>• Nâng cấp `scripts/deploy_to_pilot.py` tự động đồng bộ đầy đủ 3 khu vực: `root/`, `docs/`, và `scripts/` lên Pilot server qua SFTP. | ✅ **HOÀN THÀNH** |
+| **8** | **Đóng gói & Đẩy Mã nguồn lên Git Remote** | • Thêm quy tắc loại trừ `*history.json` vào `.gitignore` để giữ sạch kho mã nguồn.<br>• Thực hiện commit `10a4c16` và push thành công lên GitHub remote branch `main` (`origin/main`).<br>• Trạng thái working tree sạch 100% (clean). | ✅ **HOÀN THÀNH** |
 
 ### 2. Thông số Hiệu năng & Môi trường Triển khai
 * **Pilot Production Service**:
@@ -33,6 +35,10 @@ Trong phiên làm việc ngày 25/10/2026, toàn bộ các mục tiêu tối ưu
   * **VRAM footprint**: 5,820 MB / 12,288 MB (~47% capacity)
   * **Latency**: ~3,500 ms / hóa đơn (Cold start lượt đầu nạp VRAM: ~3.5 phút)
   * **Database**: MS-SQL Server `115.165.166.208:6868`, DB `CLMHQ4GIGA` (193 Outlets, 127 Bills đã lưu trữ)
+* **Kho lưu trữ Git**:
+  * **Remote URL**: `github.com:lamhongbac/ocr-bill.git` (Nhánh: `main`)
+  * **Commit mới nhất**: `10a4c16` (*feat & refactor: re-structure project into docs/ and scripts/, add Dual Mode API, 7B GPU optimization, VND rules, and consolidated DAILY_REPORT*)
+  * **Trạng thái**: Đồng bộ hoàn toàn (`up to date with origin/main`).
 
 ### 3. Kế hoạch Phiên tiếp theo
 1. Phối hợp với đội CRM chạy thử nghiệm tích hợp đầu cuối API `/api/v1/extract-bill` qua payload Base64 JSON.
