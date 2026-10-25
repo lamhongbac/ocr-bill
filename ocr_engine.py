@@ -15,6 +15,8 @@ from pathlib import Path
 from PIL import Image, ImageOps
 
 BASE_DIR = Path(__file__).resolve().parent
+if "HF_HOME" not in os.environ and Path("/mnt/data/ocr-bill/cache/huggingface").exists():
+    os.environ["HF_HOME"] = "/mnt/data/ocr-bill/cache/huggingface"
 MASTER_OUTLETS_FILE = BASE_DIR / "master_outlets.json"
 LOCAL_MODEL_DIR = BASE_DIR / "models" / "Qwen2-VL-7B-Instruct-4bit"
 HF_MODEL_ID = "mlx-community/Qwen2-VL-7B-Instruct-4bit"
@@ -34,8 +36,12 @@ Hãy đọc ảnh hóa đơn và chỉ trả về MỘT đối tượng JSON duy
   "is_valid_bill": true
 }
 Quy tắc:
-- bill_total là số tiền CUỐI CÙNG khách thực trả (Tổng thanh toán / Khách phải trả / Total due) SAU khi đã trừ giảm giá, voucher, điểm. Không lấy tiền giảm giá, không lấy tiền khách đưa, không lấy tiền thối lại. Chỉ ghi số nguyên, không dấu chấm phẩy, không đơn vị.
-- is_valid_bill = false nếu ảnh không phải hóa đơn mua hàng, hoặc quá mờ không đọc được tổng tiền.
+- ĐỊNH DẠNG SỐ TIỀN (VIỆT NAM ĐỒNG - VND):
+  * Hóa đơn tại Việt Nam dùng dấu chấm '.' hoặc phẩy ',' phân cách hàng nghìn (ví dụ: '75.000' hay '75,000' là 75 nghìn đồng -> phải ghi số nguyên 75000; '204.000' -> ghi 204000; '200.000' -> ghi 200000; '1.500.000' -> ghi 1500000).
+  * Luôn ghi đầy đủ tất cả các chữ số nguyên, tuyệt đối không bỏ các số 0 hàng nghìn và không ghi số thập phân (không được ghi 75 hay 204).
+  * Không ghi đơn vị tiền tệ (đ, VND), không ghi dấu chấm phẩy trong số bill_total.
+- bill_total là số tiền CUỐI CÙNG khách thực trả (Tổng thanh toán / Khách phải trả / Total due / Net Amount) SAU khi đã trừ giảm giá, voucher, điểm. Không lấy tiền giảm giá, không lấy tiền khách đưa, không lấy tiền thối lại.
+- is_valid_bill = false nếu ảnh không phải hóa đơn mua hàng, hoặc quá mờ không đọc được thông tin.
 - Trường nào không đọc được thì để chuỗi rỗng (bill_total để 0)."""
 
 
@@ -104,24 +110,64 @@ def _score(candidate, key):
     return difflib.SequenceMatcher(None, candidate, key).ratio()
 
 
-def resolve_outlet(raw_outlet, raw_brand):
-    """So khớp mờ trả về (outlet_number, outlet_name, match_score)."""
+def resolve_outlet(raw_outlet, raw_brand, return_candidates: bool = False, top_n: int = 3):
+    """
+    So khớp mờ tên quán và thương hiệu với danh mục Master Outlets.
+    Trả về (outlet_number, outlet_name, match_score) hoặc kèm top_candidates nếu return_candidates=True.
+    """
     outlet_index = get_outlet_index()
     candidates = [c for c in {normalize(raw_outlet), normalize(raw_brand)} if c]
     if not candidates or not outlet_index:
+        if return_candidates:
+            return None, None, 0.0, []
         return None, None, 0.0
 
-    best_obj, best_score = None, 0.0
+    ranked = []
     for obj, keys in outlet_index:
+        best_s = 0.0
         for cand in candidates:
             for key in keys:
                 s = _score(cand, key)
-                if s > best_score:
-                    best_obj, best_score = obj, s
+                if s > best_s:
+                    best_s = s
+        if best_s > 0:
+            ranked.append({
+                "outlet_number": obj.get("outlet_number"),
+                "outlet_name": obj.get("outlet_name"),
+                "brand_name": obj.get("brand_name"),
+                "outlet_address": obj.get("outlet_address"),
+                "score": round(best_s, 2),
+                "score_pct": int(round(best_s * 100))
+            })
 
-    if best_obj and best_score >= MATCH_CUTOFF:
-        return best_obj.get("outlet_number"), best_obj.get("outlet_name"), round(best_score, 2)
+    ranked.sort(key=lambda x: x["score"], reverse=True)
+    top_candidates = ranked[:top_n]
+
+    if top_candidates and top_candidates[0]["score"] >= MATCH_CUTOFF:
+        best = top_candidates[0]
+        if return_candidates:
+            return best["outlet_number"], best["outlet_name"], best["score"], top_candidates
+        return best["outlet_number"], best["outlet_name"], best["score"]
+
+    best_score = top_candidates[0]["score"] if top_candidates else 0.0
+    if return_candidates:
+        return None, None, round(best_score, 2), top_candidates
     return None, None, round(best_score, 2)
+
+
+def resolve_outlet_debug(raw_outlet: str, raw_brand: str, top_n: int = 5) -> dict:
+    """Hàm tiện ích Debug: Trả về chi tiết các ứng viên và giải thích kết quả so khớp."""
+    out_num, out_name, score, top_cands = resolve_outlet(raw_outlet, raw_brand, return_candidates=True, top_n=top_n)
+    return {
+        "raw_outlet": raw_outlet,
+        "raw_brand": raw_brand,
+        "is_matched": out_name is not None,
+        "resolved_outlet_number": out_num,
+        "resolved_outlet_name": out_name,
+        "match_score": score,
+        "match_cutoff": MATCH_CUTOFF,
+        "top_candidates": top_cands
+    }
 
 
 _device = None
@@ -141,9 +187,9 @@ def get_model():
             import torch
             if torch.cuda.is_available():
                 from transformers import Qwen2VLForConditionalGeneration, AutoProcessor
-                model_id = os.getenv("OCR_MODEL_ID", "Qwen/Qwen2-VL-2B-Instruct")
+                model_id = os.getenv("OCR_MODEL_ID", "Qwen/Qwen2-VL-7B-Instruct")
                 gpu_name = torch.cuda.get_device_name(0)
-                print(f"[*] [OCR Engine] Phát hiện NVIDIA GPU ({gpu_name}). Đang nạp {model_id} qua PyTorch CUDA...")
+                print(f"[*] [OCR Engine] Phát hiện NVIDIA GPU ({gpu_name}). Đang nạp {model_id} (7B 4-bit) qua PyTorch CUDA...")
                 t0 = time.time()
                 
                 # Cố gắng nạp 4-bit qua bitsandbytes nếu có để tiết kiệm VRAM (<6GB)
@@ -167,10 +213,10 @@ def get_model():
                         torch_dtype=torch.float16,
                         device_map="auto"
                     )
-                _processor = AutoProcessor.from_pretrained(model_id)
+                _processor = AutoProcessor.from_pretrained(model_id, min_pixels=256*28*28, max_pixels=1280*28*28)
                 _config = _model.config
                 _device = "cuda"
-                print(f"[+] [OCR Engine] Đã nạp xong mô hình lên NVIDIA GPU trong {time.time() - t0:.2f}s!")
+                print(f"[+] [OCR Engine] Đã nạp xong mô hình 7B lên NVIDIA GPU trong {time.time() - t0:.2f}s!")
                 return _model, _processor, _config, _device
         except Exception as e:
             print(f"[*] [OCR Engine] Bỏ qua CUDA ({e}), thử kiểm tra Apple Silicon...")
@@ -221,13 +267,33 @@ def parse_model_json(text):
     raise ValueError(f"Không thể parse JSON từ kết quả mô hình: {clean[:200]}")
 
 
-def to_int_amount(value):
+def to_int_amount(value, raw_str: str = None):
     if value is None or isinstance(value, bool):
         return 0
+    num = 0
     if isinstance(value, (int, float)):
-        return int(round(value))
-    digits = re.sub(r"[^\d]", "", str(value))
-    return int(digits) if digits else 0
+        num = int(round(value))
+    else:
+        s = str(value).strip()
+        s = re.sub(r"[^\d.,]", "", s)
+        if re.search(r"[.,]\d{3}$", s):
+            digits = re.sub(r"[^\d]", "", s)
+            num = int(digits) if digits else 0
+        elif re.search(r"[.,]\d{2}$", s):
+            base = re.sub(r"[.,]\d{2}$", "", s)
+            digits = re.sub(r"[^\d]", "", base)
+            num = int(digits) if digits else 0
+        else:
+            digits = re.sub(r"[^\d]", "", s)
+            num = int(digits) if digits else 0
+
+    # Chuẩn hóa nếu mô hình hiểu nhầm dấu chấm phân tách hàng nghìn thành số thập phân:
+    # Ví dụ: bill_total = 75 hoặc 75.0 (tương ứng 75.000 đ), 204 (204.000 đ), 200 (200.000 đ)
+    # Trong TTTM Gigamall, các giao dịch thanh toán F&B/bán lẻ tối thiểu từ 1.000 đ trở lên
+    if 0 < num < 1000:
+        num = num * 1000
+
+    return num
 
 
 def prepare_image(img_path: Path) -> Path:
@@ -350,7 +416,7 @@ def process_bill_image(image_path: Path) -> dict:
 
     optimized_bill_number = optimize_bill_number(raw_bill_number, bill_datetime)
 
-    out_num, out_name, match_score = resolve_outlet(raw_outlet, raw_brand)
+    out_num, out_name, match_score, top_candidates = resolve_outlet(raw_outlet, raw_brand, return_candidates=True, top_n=3)
 
     return {
         "raw_brand": raw_brand,
@@ -363,6 +429,7 @@ def process_bill_image(image_path: Path) -> dict:
         "outlet_number": out_num,
         "resolved_outlet": out_name,
         "match_score": match_score,
+        "top_candidates": top_candidates,
         "latency": latency,
         "raw_output": raw_text,
     }

@@ -7,6 +7,7 @@ Phục vụ 3 User Story:
 """
 import os
 import json
+import time
 import pymssql
 from datetime import datetime
 from pathlib import Path
@@ -15,6 +16,8 @@ from typing import Optional, List, Dict, Any, Tuple
 BASE_DIR = Path(__file__).resolve().parent
 FREETDS_CONF_PATH = BASE_DIR / "freetds.conf"
 DB_CONFIG_PATH = BASE_DIR / "db_config.json"
+SYNC_HISTORY_PATH = BASE_DIR / "sync_history.json"
+CRON_SCANNER_HISTORY_PATH = BASE_DIR / "cron_scanner_history.json"
 
 # Thiết lập FreeTDS config để tương thích SQL Server 2012 không lỗi TLS handshake
 os.environ["FREETDSCONF"] = str(FREETDS_CONF_PATH)
@@ -45,8 +48,9 @@ def load_db_config() -> dict:
 
 def get_connection():
     cfg = load_db_config()
+    server_addr = cfg.get("server") or cfg.get("host") or "115.165.166.208"
     return pymssql.connect(
-        server=cfg.get("server", "CLMHQ4GIGA"),
+        server=server_addr,
         user=cfg["user"],
         password=cfg["password"],
         database=cfg["database"],
@@ -702,7 +706,7 @@ def fetch_master_outlets_from_db():
             o.Address AS outlet_address
         FROM G_Outlet o WITH (NOLOCK)
         INNER JOIN G_Brand b WITH (NOLOCK) ON o.BrandID = b.ID
-        WHERE o.IsActive = 1 AND o.IsUsed = 1
+        WHERE ISNULL(o.IsActive, 1) = 1 AND ISNULL(o.IsUsed, 1) = 1
         ORDER BY o.OutletName
         """)
         return cursor.fetchall()
@@ -710,16 +714,203 @@ def fetch_master_outlets_from_db():
         conn.close()
 
 
-def sync_master_outlets_file(target_file=None):
-    """Đồng bộ từ CSDL và ghi đè file master_outlets.json chuẩn UTF-8."""
+def log_sync_event(event: dict) -> dict:
+    """Ghi nhận sự kiện đồng bộ danh mục vào file sync_history.json (lưu tối đa 100 bản ghi gần nhất)."""
+    history = []
+    if SYNC_HISTORY_PATH.exists():
+        try:
+            with open(SYNC_HISTORY_PATH, "r", encoding="utf-8") as f:
+                history = json.load(f)
+                if not isinstance(history, list):
+                    history = []
+        except Exception:
+            history = []
+
+    history.insert(0, event)
+    history = history[:100]
+
+    try:
+        with open(SYNC_HISTORY_PATH, "w", encoding="utf-8") as f:
+            json.dump(history, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        print(f"[!] Không thể ghi sync_history.json: {e}")
+    return event
+
+
+def get_sync_history(limit: int = 50) -> dict:
+    """Lấy danh sách lịch sử đồng bộ gần nhất cùng thông tin file master_outlets.json."""
+    history = []
+    if SYNC_HISTORY_PATH.exists():
+        try:
+            with open(SYNC_HISTORY_PATH, "r", encoding="utf-8") as f:
+                history = json.load(f)
+                if not isinstance(history, list):
+                    history = []
+        except Exception:
+            history = []
+
+    master_path = BASE_DIR / "master_outlets.json"
+    file_info = {
+        "exists": master_path.exists(),
+        "total_outlets": 0,
+        "last_modified": None,
+        "file_size_kb": 0
+    }
+    if master_path.exists():
+        try:
+            file_info["file_size_kb"] = round(master_path.stat().st_size / 1024, 1)
+            file_info["last_modified"] = datetime.fromtimestamp(master_path.stat().st_mtime).strftime("%Y-%m-%d %H:%M:%S")
+            with open(master_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                if isinstance(data, list):
+                    file_info["total_outlets"] = len(data)
+        except Exception:
+            pass
+
+    cfg = load_db_config()
+    return {
+        "current_environment": cfg.get("_active_env", "dev"),
+        "file_info": file_info,
+        "history": history[:limit]
+    }
+
+
+def log_cron_scan_event(event: dict) -> dict:
+    """Ghi nhận sự kiện quét của cron_ocr_scanner vào cron_scanner_history.json (lưu tối đa 100 bản ghi)."""
+    history = []
+    if CRON_SCANNER_HISTORY_PATH.exists():
+        try:
+            with open(CRON_SCANNER_HISTORY_PATH, "r", encoding="utf-8") as f:
+                history = json.load(f)
+                if not isinstance(history, list):
+                    history = []
+        except Exception:
+            history = []
+
+    history.insert(0, event)
+    history = history[:100]
+
+    try:
+        with open(CRON_SCANNER_HISTORY_PATH, "w", encoding="utf-8") as f:
+            json.dump(history, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        print(f"[!] Không thể ghi cron_scanner_history.json: {e}")
+    return event
+
+
+def get_cron_scan_history(limit: int = 50) -> dict:
+    """Lấy danh sách lịch sử các đợt quét OCR gần nhất."""
+    history = []
+    if CRON_SCANNER_HISTORY_PATH.exists():
+        try:
+            with open(CRON_SCANNER_HISTORY_PATH, "r", encoding="utf-8") as f:
+                history = json.load(f)
+                if not isinstance(history, list):
+                    history = []
+        except Exception:
+            history = []
+
+    cfg = load_db_config()
+    return {
+        "current_environment": cfg.get("_active_env", "dev"),
+        "history": history[:limit]
+    }
+
+
+def get_cron_system_report(limit: int = 50) -> dict:
+    """
+    Tổng hợp báo cáo tình trạng thực hiện các Cron Jobs (OCR Scanner & Outlet Sync).
+    CHỈ ÁP DỤNG cho môi trường PILOT và PRODUCTION.
+    Nếu ở môi trường DEV -> Raise PermissionError để API trả về HTTP 403 Forbidden.
+    """
+    cfg = load_db_config()
+    active_env = cfg.get("_active_env", "dev").lower()
+
+    if active_env == "dev":
+        raise PermissionError(
+            "Báo cáo Cron Job chỉ khả dụng trên môi trường Pilot và Production. Môi trường DEV bị vô hiệu hóa Cron tự động."
+        )
+
+    scanner_data = get_cron_scan_history(limit=limit)
+    sync_data = get_sync_history(limit=limit)
+
+    scan_history = scanner_data.get("history", [])
+    total_runs = len(scan_history)
+    total_scanned = sum(r.get("bills_scanned", 0) for r in scan_history)
+    total_success = sum(r.get("bills_success", 0) for r in scan_history)
+    total_failed = sum(r.get("bills_failed", 0) for r in scan_history)
+
+    last_scan = scan_history[0] if scan_history else None
+    sync_history = sync_data.get("history", [])
+    last_sync = sync_history[0] if sync_history else None
+
+    # Xác định Health Status
+    health = "HEALTHY"
+    if last_scan and last_scan.get("status") == "FAILED":
+        health = "WARNING"
+    elif last_sync and last_sync.get("status") == "FAILED":
+        health = "WARNING"
+    elif total_runs == 0 and len(sync_history) == 0:
+        health = "IDLE"
+
+    return {
+        "current_environment": active_env,
+        "health_status": health,
+        "kpi": {
+            "total_runs_tracked": total_runs,
+            "total_bills_scanned": total_scanned,
+            "total_bills_success": total_success,
+            "total_bills_failed": total_failed,
+            "last_scan_run": last_scan,
+            "last_sync_run": last_sync,
+            "total_master_outlets": sync_data.get("file_info", {}).get("total_outlets", 0)
+        },
+        "scanner_history": scan_history[:limit],
+        "sync_history": sync_history[:limit]
+    }
+
+
+def sync_master_outlets_file(target_file=None, actor="SYSTEM", source="CRON") -> int:
+    """Đồng bộ từ CSDL và ghi đè file master_outlets.json chuẩn UTF-8, đồng thời ghi log kiểm toán."""
     if target_file is None:
         target_file = BASE_DIR / "master_outlets.json"
-    outlets = fetch_master_outlets_from_db()
-    if outlets:
+
+    t0 = time.time()
+    cfg = load_db_config()
+    active_env = cfg.get("_active_env", "dev")
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    try:
+        outlets = fetch_master_outlets_from_db()
+        count = len(outlets) if outlets else 0
         with open(target_file, "w", encoding="utf-8") as f:
-            json.dump(outlets, f, ensure_ascii=False, indent=2)
-        return len(outlets)
-    return 0
+            json.dump(outlets or [], f, ensure_ascii=False, indent=2)
+
+        duration_ms = round((time.time() - t0) * 1000, 1)
+        log_sync_event({
+            "timestamp": now_str,
+            "source": source,
+            "environment": active_env,
+            "status": "SUCCESS",
+            "count": count,
+            "duration_ms": duration_ms,
+            "actor": actor,
+            "error_message": None
+        })
+        return count
+    except Exception as e:
+        duration_ms = round((time.time() - t0) * 1000, 1)
+        log_sync_event({
+            "timestamp": now_str,
+            "source": source,
+            "environment": active_env,
+            "status": "FAILED",
+            "count": 0,
+            "duration_ms": duration_ms,
+            "actor": actor,
+            "error_message": str(e)
+        })
+        raise
 
 
 if __name__ == "__main__":

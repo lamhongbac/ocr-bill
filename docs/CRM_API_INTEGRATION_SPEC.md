@@ -155,45 +155,69 @@ Tương tự cấu trúc của API 1.
 
 ### API 3: BÓC TÁCH HÓA ĐƠN TRỰC TIẾP BẰNG AI (EXTRACT BILL OCR - SYNC)
 
-Dùng khi hệ thống cần AI bóc tách ngay lập tức và trả về đầy đủ các trường thông tin trong cùng một phiên kết nối HTTP.
+Dùng khi hệ thống cần AI bóc tách ngay lập tức và trả về đầy đủ các trường thông tin trong cùng một phiên kết nối HTTP. Hệ thống hiện **hỗ trợ song song cả 2 hình thức (Dual Mode)**: Multipart Form-Data và Base64 JSON.
 
 * **Phương thức**: `POST`
 * **Đường dẫn**: `/api/v1/extract-bill`
-* **Content-Type**: `multipart/form-data`
+* **Thời gian xử lý**: Trung bình **~3.5 giây / hóa đơn** (trên máy chủ Pilot GPU NVIDIA RTX 3060).
 
-#### Tham số Request:
-| Tham số | Kiểu dữ liệu | Bắt buộc | Mô tả |
+---
+
+#### 📌 Cách 1: Gửi qua Multipart Form-Data (Khuyến nghị khi có tệp ảnh)
+* **Content-Type**: `multipart/form-data`
+* **Bảng tham số Form**:
+| Tham số | Kiểu dữ liệu | Bắt buộc | Mô tả chi tiết |
 | :--- | :--- | :---: | :--- |
-| `file` | Binary (File) | **Có** | Tệp ảnh hóa đơn |
-| `mem_id` | String | Không | Mã thành viên / Khách hàng tích điểm |
-| `image_number` | String | Không | Mã định danh do CRM quản lý |
+| `file` | Binary (File) | **Có** | Stream nhị phân tệp ảnh (`.png`, `.jpg`, `.jpeg`, `.webp`). **Tên trường bắt buộc là `file`** |
+| `mem_id` | String | Không | Mã thành viên / Khách hàng CRM tích điểm (ví dụ: `0901234567`) |
+| `image_number` | String | Không | Mã định danh tên file do CRM quản lý (ví dụ: `10852_100926222127`) |
 | `duplicate_action`| String | Không | `"warn"` (mặc định), `"allow"`, `"reject"` |
+
+---
+
+#### 📌 Cách 2: Gửi qua Application/JSON (Chuỗi Base64)
+* **Content-Type**: `application/json`
+* **JSON Body**:
+```json
+{
+  "image": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...",
+  "mem_id": "0901234567",
+  "image_number": "10852_100926222127",
+  "duplicate_action": "warn"
+}
+```
+*(Hỗ trợ nhận chuỗi Base64 qua các trường: `image`, `bill_image`, `image_base64`, có hoặc không có tiền tố `data:image/...;base64,`)*.
+
+---
 
 #### Cấu trúc Response thành công (HTTP 200 OK):
 ```json
 {
   "success": true,
-  "bill_id": 118,
-  "filename": "ocr_20261022_143000_abc123.jpg",
+  "bill_id": 180,
+  "filename": "10852_100926222127.png",
+  "image_url": "/api/images/10852_100926222127.png",
   "is_duplicate": false,
   "duplicate_action": "warn",
   "action_taken": null,
   "duplicate_info": null,
-  "latency_seconds": 0.85,
+  "latency_seconds": 3.52,
   "data": {
-    "brand_name": "HIGHLANDS COFFEE",
-    "outlet_name": "HIGHLANDS COFFEE GIGAMALL",
-    "outlet_number": "HIGHLANDS",
-    "bill_number": "HD-1802023",
-    "bill_datetime": "2026-10-20 14:30:00",
-    "bill_total": 83000,
+    "brand_name": "COOP.XTRA",
+    "outlet_name": "COOPXTRA",
+    "outlet_number": "COOPXTRA",
+    "resolved_outlet": "CO.OPXTRA",
+    "bill_number": "261545",
+    "bill_datetime": "2026-09-10 15:45:00",
+    "bill_total": 204000,
     "is_valid_bill": true,
     "match_score": 1.0,
-    "confidence": 0.98
+    "confidence": 1.0
   },
-  "raw_output": "{\"brand_name\": \"HIGHLANDS COFFEE\", ...}"
+  "raw_output": "{\n  \"brand_name\": \"\",\n  \"outlet_name\": \"COOPXTRA\",\n  \"bill_number\": \"261545\",\n  \"bill_datetime\": \"2026-09-10 15:45:00\",\n  \"bill_total\": 204000,\n  \"is_valid_bill\": true\n}"
 }
 ```
+* **Lưu ý định dạng tiền tệ**: `data.bill_total` luôn là **số nguyên VNĐ đầy đủ** (ví dụ: `204000`, `75000`), không có số thập phân và đã được thuật toán chuẩn hóa dấu phân tách hàng nghìn của Việt Nam.
 
 ---
 
@@ -424,68 +448,280 @@ Nhằm bảo vệ hệ thống trước các hành vi gian lận hoặc gửi tr
 
 ### 6.1. Ví dụ C# (.NET Core HttpClient trên Backend CRM Server)
 
+Dưới đây là toàn bộ mã nguồn C# .NET hoàn chỉnh (sử dụng .NET 6 / 7 / 8) hỗ trợ cả 2 phương thức: Gọi bóc tách trực tiếp AI (`ExtractBillAsync`) và Upload nhanh Fast Save (`UploadBillAsync`), kèm theo đầy đủ các lớp DTOs ánh xạ JSON chuẩn:
+
 ```csharp
 using System;
 using System.IO;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 
-public class GigamallOcrClient
+namespace GigaMall.Crm.OcrIntegration
 {
-    private readonly HttpClient _httpClient;
-    private const string BASE_URL = "http://14.161.34.37:8080";
-
-    public GigamallOcrClient(HttpClient httpClient)
-    {
-        _httpClient = httpClient;
-        _httpClient.BaseAddress = new Uri(BASE_URL);
-        _httpClient.Timeout = TimeSpan.FromSeconds(30);
-    }
-
     /// <summary>
-    /// Upload hóa đơn nhanh qua Multipart Form với cơ chế kiểm soát trùng lặp
+    /// Client mẫu kết nối trực tiếp API OCR Hóa đơn GigaMall (Pilot: 14.161.34.37:8080)
     /// </summary>
-    public async Task<OcrUploadResponseDto> UploadBillAsync(
-        string imagePath, 
-        string actor = "CRM Mobile", 
-        string duplicateAction = "warn")
+    public class OcrBillClient
     {
-        using var form = new MultipartFormDataContent();
-        
-        // 1. Nạp file ảnh
-        byte[] imageBytes = await File.ReadAllBytesAsync(imagePath);
-        var fileContent = new ByteArrayContent(imageBytes);
-        fileContent.Headers.ContentType = MediaTypeHeaderValue.Parse("image/jpeg");
-        form.Add(fileContent, "file", Path.GetFileName(imagePath));
+        private static readonly HttpClient _httpClient = new HttpClient
+        {
+            BaseAddress = new Uri("http://14.161.34.37:8080"),
+            Timeout = TimeSpan.FromSeconds(60) // AI OCR cần thời gian suy luận ~3.5s
+        };
 
-        // 2. Các tham số điều khiển
-        form.Add(new StringContent(actor), "actor");
-        form.Add(new StringContent(duplicateAction), "duplicate_action");
-        form.Add(new StringContent("true"), "async_ocr"); // Phản hồi tức thì < 100ms
+        // =========================================================================
+        // 1. GỌI BÓC TÁCH HÓA ĐƠN TRỰC TIẾP (API 3: POST /api/v1/extract-bill)
+        // =========================================================================
 
-        // 3. Gửi request
-        HttpResponseMessage response = await _httpClient.PostAsync("/api/v1/bills/upload", form);
-        string json = await response.Content.ReadAsStringAsync();
-        
-        return JsonSerializer.Deserialize<OcrUploadResponseDto>(json, new JsonSerializerOptions 
-        { 
-            PropertyNameCaseInsensitive = true 
-        });
+        /// <summary>
+        /// Bóc tách hóa đơn trực tiếp qua Multipart Form-Data (Khuyến nghị khi có tệp ảnh)
+        /// </summary>
+        public static async Task<ExtractBillResponse> ExtractBillAsync(
+            string imageFilePath,
+            string memId = null,
+            string duplicateAction = "allow")
+        {
+            if (!File.Exists(imageFilePath))
+                throw new FileNotFoundException("Không tìm thấy tệp ảnh hóa đơn:", imageFilePath);
+
+            string fileName = Path.GetFileName(imageFilePath);
+            string imageNumber = Path.GetFileNameWithoutExtension(imageFilePath);
+
+            using (var form = new MultipartFormDataContent())
+            {
+                // ⚠️ QUY TẮC BẮT BUỘC: Tên trường form data BẮT BUỘC phải đặt là "file" (chữ thường)
+                byte[] fileBytes = await File.ReadAllBytesAsync(imageFilePath);
+                var fileContent = new ByteArrayContent(fileBytes);
+                fileContent.Headers.ContentType = MediaTypeHeaderValue.Parse(GetMimeType(fileName));
+                form.Add(fileContent, "file", fileName);
+
+                if (!string.IsNullOrEmpty(memId))
+                    form.Add(new StringContent(memId), "mem_id");
+
+                form.Add(new StringContent(imageNumber), "image_number");
+                form.Add(new StringContent(duplicateAction), "duplicate_action");
+
+                HttpResponseMessage response = await _httpClient.PostAsync("/api/v1/extract-bill", form);
+                string responseJson = await response.Content.ReadAsStringAsync();
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    throw new HttpRequestException(
+                        $"OCR Server trả về lỗi HTTP {(int)response.StatusCode} ({response.ReasonPhrase}): {responseJson}");
+                }
+
+                var jsonOptions = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                return JsonSerializer.Deserialize<ExtractBillResponse>(responseJson, jsonOptions);
+            }
+        }
+
+        /// <summary>
+        /// Bóc tách hóa đơn trực tiếp qua Chuỗi Base64 JSON (Dành cho Client truyền Base64)
+        /// </summary>
+        public static async Task<ExtractBillResponse> ExtractBillBase64Async(
+            string imageBase64String,
+            string memId = null,
+            string imageNumber = null,
+            string duplicateAction = "allow")
+        {
+            var payload = new
+            {
+                image = imageBase64String,
+                mem_id = memId,
+                image_number = imageNumber,
+                duplicate_action = duplicateAction
+            };
+
+            var content = new StringContent(
+                JsonSerializer.Serialize(payload),
+                System.Text.Encoding.UTF8,
+                "application/json"
+            );
+
+            HttpResponseMessage response = await _httpClient.PostAsync("/api/v1/extract-bill", content);
+            string responseJson = await response.Content.ReadAsStringAsync();
+
+            if (!response.IsSuccessStatusCode)
+            {
+                throw new HttpRequestException(
+                    $"OCR Server trả về lỗi HTTP {(int)response.StatusCode} ({response.ReasonPhrase}): {responseJson}");
+            }
+
+            var jsonOptions = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            return JsonSerializer.Deserialize<ExtractBillResponse>(responseJson, jsonOptions);
+        }
+
+        // =========================================================================
+        // 2. TẢI ẢNH CHẾ ĐỘ FAST SAVE (API 1: POST /api/v1/bills/upload)
+        // =========================================================================
+
+        /// <summary>
+        /// Lưu ảnh nhanh xuống đĩa máy chủ trong < 0.1s, AI bóc tách ngầm
+        /// </summary>
+        public static async Task<OcrUploadResponseDto> UploadBillFastSaveAsync(
+            string imageFilePath, 
+            string actor = "CRM Mobile", 
+            string duplicateAction = "warn")
+        {
+            using var form = new MultipartFormDataContent();
+            byte[] imageBytes = await File.ReadAllBytesAsync(imageFilePath);
+            var fileContent = new ByteArrayContent(imageBytes);
+            fileContent.Headers.ContentType = MediaTypeHeaderValue.Parse(GetMimeType(imageFilePath));
+            form.Add(fileContent, "file", Path.GetFileName(imageFilePath));
+
+            form.Add(new StringContent(actor), "actor");
+            form.Add(new StringContent(duplicateAction), "duplicate_action");
+            form.Add(new StringContent("true"), "async_ocr");
+
+            HttpResponseMessage response = await _httpClient.PostAsync("/api/v1/bills/upload", form);
+            string json = await response.Content.ReadAsStringAsync();
+            
+            return JsonSerializer.Deserialize<OcrUploadResponseDto>(json, new JsonSerializerOptions 
+            { 
+                PropertyNameCaseInsensitive = true 
+            });
+        }
+
+        private static string GetMimeType(string fileName)
+        {
+            string ext = Path.GetExtension(fileName).ToLowerInvariant();
+            return ext switch
+            {
+                ".png" => "image/png",
+                ".jpg" or ".jpeg" => "image/jpeg",
+                ".webp" => "image/webp",
+                _ => "application/octet-stream"
+            };
+        }
     }
-}
 
-public class OcrUploadResponseDto
-{
-    public bool Success { get; set; }
-    public int Bill_Id { get; set; }
-    public string Filename { get; set; }
-    public string Status { get; set; }
-    public bool Is_Duplicate { get; set; }
-    public string Duplicate_Action { get; set; }
-    public string Message { get; set; }
-    public double Latency_Seconds { get; set; }
+    // =========================================================================
+    // CÁC LỚP ĐỐI TƯỢNG DTOs ÁNH XẠ KẾT QUẢ JSON CHUẨN CRM SPEC
+    // =========================================================================
+
+    public class ExtractBillResponse
+    {
+        [JsonPropertyName("success")]
+        public bool Success { get; set; }
+
+        [JsonPropertyName("bill_id")]
+        public int BillId { get; set; }
+
+        [JsonPropertyName("filename")]
+        public string Filename { get; set; }
+
+        [JsonPropertyName("is_duplicate")]
+        public bool IsDuplicate { get; set; }
+
+        [JsonPropertyName("duplicate_action")]
+        public string DuplicateAction { get; set; }
+
+        [JsonPropertyName("action_taken")]
+        public string ActionTaken { get; set; }
+
+        [JsonPropertyName("latency_seconds")]
+        public double LatencySeconds { get; set; }
+
+        [JsonPropertyName("data")]
+        public ExtractedBillData Data { get; set; }
+
+        [JsonPropertyName("raw_output")]
+        public string RawOutput { get; set; }
+    }
+
+    public class ExtractedBillData
+    {
+        [JsonPropertyName("brand_name")]
+        public string BrandName { get; set; }
+
+        [JsonPropertyName("outlet_name")]
+        public string OutletName { get; set; }
+
+        [JsonPropertyName("outlet_number")]
+        public string OutletNumber { get; set; }
+
+        [JsonPropertyName("resolved_outlet")]
+        public string ResolvedOutlet { get; set; }
+
+        [JsonPropertyName("bill_number")]
+        public string BillNumber { get; set; }
+
+        [JsonPropertyName("bill_datetime")]
+        public string BillDateTime { get; set; }
+
+        [JsonPropertyName("bill_total")]
+        public long BillTotal { get; set; }
+
+        [JsonPropertyName("is_valid_bill")]
+        public bool IsValidBill { get; set; }
+
+        [JsonPropertyName("match_score")]
+        public double MatchScore { get; set; }
+
+        [JsonPropertyName("confidence")]
+        public double Confidence { get; set; }
+    }
+
+    public class OcrUploadResponseDto
+    {
+        public bool Success { get; set; }
+        public int Bill_Id { get; set; }
+        public string Filename { get; set; }
+        public string Status { get; set; }
+        public bool Is_Duplicate { get; set; }
+        public string Duplicate_Action { get; set; }
+        public string Message { get; set; }
+        public double Latency_Seconds { get; set; }
+    }
+
+    // =========================================================================
+    // CHƯƠNG TRÌNH CONSOLE MẪU THỬ NGHIỆM GỌI API (PROGRAM.CS)
+    // =========================================================================
+    public class Program
+    {
+        public static async Task Main(string[] args)
+        {
+            Console.WriteLine("=================================================");
+            Console.WriteLine("GIGAMALL CRM - THỬ NGHIỆM API EXTRACT BILL (.NET)");
+            Console.WriteLine("=================================================");
+
+            string sampleImagePath = @"/path/to/sample_bill.png";
+
+            try
+            {
+                Console.WriteLine($"Đang gửi hóa đơn tới AI OCR Server: {sampleImagePath}...");
+                var result = await OcrBillClient.ExtractBillAsync(
+                    imageFilePath: sampleImagePath,
+                    memId: "MEM_TEST_99",
+                    duplicateAction: "allow"
+                );
+
+                if (result.Success && result.Data != null)
+                {
+                    Console.WriteLine("\n✅ BÓC TÁCH THÀNH CÔNG:");
+                    Console.WriteLine($" • Bill ID: #{result.BillId}");
+                    Console.WriteLine($" • Thời gian xử lý: {result.LatencySeconds}s");
+                    Console.WriteLine($" • Thương hiệu: {result.Data.BrandName}");
+                    Console.WriteLine($" • Cửa hàng nhận diện: {result.Data.ResolvedOutlet} (Mã CRM: {result.Data.OutletNumber})");
+                    Console.WriteLine($" • Độ khớp danh mục: {result.Data.MatchScore * 100}%");
+                    Console.WriteLine($" • Tổng tiền thanh toán: {result.Data.BillTotal:N0} đ");
+                    Console.WriteLine($" • Số hóa đơn (6 số cuối): {result.Data.BillNumber}");
+                    Console.WriteLine($" • Ngày giờ giao dịch: {result.Data.BillDateTime}");
+                }
+                else
+                {
+                    Console.WriteLine($"\n⚠️ Bóc tách không trích xuất được: Success = {result.Success}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"\n❌ Lỗi thực thi: {ex.Message}");
+            }
+        }
+    }
 }
 ```
 

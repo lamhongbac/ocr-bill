@@ -3,7 +3,7 @@
 Script tự động hóa quy trình Triển khai (CI/CD Deployment) từ máy Dev lên máy chủ Pilot (14.161.34.37).
 Quy trình:
 1. Pre-flight check: Kiểm tra cú pháp Python cục bộ (py_compile).
-2. SFTP Transfer: Đẩy các file mã nguồn mới lên /opt/ocr-bill/.
+2. SFTP Transfer: Đẩy các file mã nguồn và tài liệu mới lên /opt/ocr-bill/ (root, docs/, scripts/).
 3. Systemd Reload: Khởi động lại dịch vụ ocr-bill.service qua SSH.
 4. Health Check / Smoke Test: Gọi API kiểm tra sức khỏe và độ trễ phản hồi.
 """
@@ -24,29 +24,32 @@ try:
 except ImportError:
     requests = None
 
+PROJECT_ROOT = Path(__file__).resolve().parent.parent if Path(__file__).resolve().parent.name == "scripts" else Path(__file__).resolve().parent
+
 SERVER_HOST = "14.161.34.37"
 SERVER_PORT = 22
 SERVER_USER = "msa"
 SERVER_PASS = "Admin@2026"
 REMOTE_DIR = "/opt/ocr-bill"
 
-# Danh sách các file cốt lõi cần đồng bộ khi triển khai
-DEPLOY_FILES = [
+# Danh sách các file cốt lõi tại root cần đồng bộ
+ROOT_FILES = [
     "app_review.py",
     "db.py",
     "ocr_engine.py",
-    "CRM_API_INTEGRATION_SPEC.md",
-    "CRM_BILL_REVIEW_AND_AUDIT_TECH_SPEC.md",
-    "setup_database_dev.sql",
-    "SERVER_BASELINE_AND_CHANGE_MANAGEMENT.md",
-    "deploy_to_pilot.py"
+    "master_outlets.json",
+    "db_config.example.json",
+    "requirements.txt",
+    "DAILY_REPORT.md",
+    "DEV_PLAN.md",
+    "DEV_HISTORY.md"
 ]
 
 
 def check_local_syntax():
     print("[1/4] 🔍 Kiểm tra cú pháp mã nguồn cục bộ...")
     for fn in ["app_review.py", "db.py", "ocr_engine.py"]:
-        p = Path(fn)
+        p = PROJECT_ROOT / fn
         if p.exists():
             try:
                 py_compile.compile(str(p), doraise=True)
@@ -59,15 +62,46 @@ def check_local_syntax():
 def upload_files_via_sftp(ssh):
     print(f"[2/4] 📤 Đang đồng bộ file lên máy chủ {SERVER_HOST}:{REMOTE_DIR}...")
     sftp = ssh.open_sftp()
+    
+    # Đảm bảo thư mục docs và scripts tồn tại trên remote
+    for sub in ["docs", "scripts"]:
+        try:
+            sftp.mkdir(f"{REMOTE_DIR}/{sub}")
+        except IOError:
+            pass
+        
     uploaded = 0
-    for fn in DEPLOY_FILES:
-        local_path = Path(fn)
+    # 1. Đẩy các file tại root
+    for fn in ROOT_FILES:
+        local_path = PROJECT_ROOT / fn
         if local_path.exists():
             remote_path = f"{REMOTE_DIR}/{fn}"
             sftp.put(str(local_path), remote_path)
             size_kb = local_path.stat().st_size / 1024
-            print(f"  ✓ Đã tải lên: {fn} ({size_kb:.1f} KB)")
+            print(f"  ✓ Root: {fn} ({size_kb:.1f} KB)")
             uploaded += 1
+            
+    # 2. Đẩy các tài liệu trong docs/
+    docs_dir = PROJECT_ROOT / "docs"
+    if docs_dir.exists():
+        for doc_file in sorted(docs_dir.glob("*.md")):
+            remote_path = f"{REMOTE_DIR}/docs/{doc_file.name}"
+            sftp.put(str(doc_file), remote_path)
+            size_kb = doc_file.stat().st_size / 1024
+            print(f"  ✓ Docs: docs/{doc_file.name} ({size_kb:.1f} KB)")
+            uploaded += 1
+
+    # 3. Đẩy các script trong scripts/
+    scripts_dir = PROJECT_ROOT / "scripts"
+    if scripts_dir.exists():
+        for script_file in sorted(scripts_dir.iterdir()):
+            if script_file.is_file() and not script_file.name.startswith("."):
+                remote_path = f"{REMOTE_DIR}/scripts/{script_file.name}"
+                sftp.put(str(script_file), remote_path)
+                size_kb = script_file.stat().st_size / 1024
+                print(f"  ✓ Scripts: scripts/{script_file.name} ({size_kb:.1f} KB)")
+                uploaded += 1
+            
     sftp.close()
     print(f"  -> Hoàn tất tải lên {uploaded} tệp.")
 
@@ -118,20 +152,20 @@ def main():
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     try:
-        ssh.connect(SERVER_HOST, port=SERVER_PORT, username=SERVER_USER, password=SERVER_PASS, timeout=15)
+        ssh.connect(SERVER_HOST, port=SERVER_PORT, username=SERVER_USER, password=SERVER_PASS, timeout=10)
         print("  ✓ Kết nối SSH thành công!")
     except Exception as e:
-        print(f"  ❌ Kết nối SSH thất bại: {e}")
+        print(f"  ❌ Không thể kết nối SSH tới {SERVER_HOST}: {e}")
         sys.exit(1)
 
     try:
         upload_files_via_sftp(ssh)
         restart_remote_service(ssh)
+        run_smoke_test()
     finally:
         ssh.close()
+        print("\n🔒 Đã đóng phiên kết nối SSH.")
 
-    print()
-    run_smoke_test()
     print("\n" + "=" * 70)
     print("🎉 TRIỂN KHAI HOÀN TẤT THÀNH CÔNG! HỆ THỐNG ĐÃ SẴN SÀNG.")
     print("=" * 70)

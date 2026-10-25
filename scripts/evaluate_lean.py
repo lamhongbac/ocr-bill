@@ -23,7 +23,7 @@ os.environ.setdefault("PYTHONDONTWRITEBYTECODE", "1")
 import pandas as pd
 from PIL import Image, ImageOps
 
-BASE_DIR = Path(__file__).resolve().parent
+BASE_DIR = Path(__file__).resolve().parent.parent
 MASTER_OUTLETS_FILE = BASE_DIR / "master_outlets.json"
 IMAGE_DIR = BASE_DIR / "test_images"
 LOCAL_MODEL_DIR = BASE_DIR / "models" / "Qwen2-VL-7B-Instruct-4bit"

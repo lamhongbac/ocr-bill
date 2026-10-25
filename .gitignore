@@ -15,6 +15,7 @@ results.csv
 report.html
 gate1_audit*.csv
 *.log
+*history.json
 
 # Sensitive credentials & DB configs
 db_config.json

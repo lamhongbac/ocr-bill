@@ -4,6 +4,12 @@ Migration script: Bổ sung các cột Admin_* (Admin Override) vào bảng OcrB
 và khởi tạo SQL View v_OcrBillsFinal theo nguyên tắc Coalesce Pattern:
 Final = COALESCE(Admin, AI)
 """
+import sys
+from pathlib import Path
+ROOT_DIR = Path(__file__).resolve().parent.parent
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
+
 import db
 
 def run_migration():

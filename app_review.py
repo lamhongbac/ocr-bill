@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Optional, List, Dict, Any
 from PIL import Image
 
-from fastapi import FastAPI, HTTPException, Query, Response, File, UploadFile, Form, BackgroundTasks, Header
+from fastapi import FastAPI, HTTPException, Query, Response, File, UploadFile, Form, BackgroundTasks, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, FileResponse
 from pydantic import BaseModel
@@ -430,21 +430,101 @@ def get_master_outlets():
         return json.load(f)
 
 
+@app.get("/api/v1/sync-logs")
+def get_sync_logs():
+    """Lấy lịch sử đồng bộ danh mục cửa hàng và thông tin file master_outlets.json."""
+    try:
+        return db.get_sync_history(limit=50)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/v1/admin/cron-report")
+def get_admin_cron_report(limit: int = 50):
+    """
+    Báo cáo tình trạng thực hiện các Cron Jobs (OCR Scanner & Outlet Sync).
+    CHỈ ÁP DỤNG trên môi trường PILOT và PRODUCTION.
+    Trên môi trường DEV -> Trả về HTTP 403 Forbidden.
+    """
+    try:
+        return db.get_cron_system_report(limit=limit)
+    except PermissionError as pe:
+        raise HTTPException(status_code=403, detail=str(pe))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/bills/{bill_id}/ocr-debug")
+def get_bill_ocr_debug(bill_id: int):
+    """
+    API Debug & Đánh Giá Thuật Toán OCR cho từng hóa đơn:
+    - Trả về toàn văn JSON thô do model sinh ra
+    - Phân tích chi tiết so khớp mờ với Top 5 ứng viên cửa hàng gần nhất
+    - Đánh giá chất lượng bóc tách các trường
+    """
+    bill = db.get_bill_detail(bill_id)
+    if not bill:
+        raise HTTPException(status_code=404, detail="Không tìm thấy hóa đơn")
+
+    debug_matching = ocr_engine.resolve_outlet_debug(
+        bill.get("OcrOutletRaw") or "",
+        bill.get("OcrBrand") or "",
+        top_n=5
+    )
+
+    return {
+        "bill_id": bill_id,
+        "filename": bill.get("Filename"),
+        "latency_seconds": bill.get("OcrLatency"),
+        "raw_vlm_output": bill.get("OcrRawOutput"),
+        "extracted_fields": {
+            "bill_total": bill.get("OcrTotal"),
+            "raw_outlet": bill.get("OcrOutletRaw"),
+            "raw_brand": bill.get("OcrBrand"),
+            "bill_number": bill.get("OcrBillNumber"),
+            "bill_datetime": bill.get("OcrDateTime"),
+            "is_valid_bill": bill.get("OcrIsValid"),
+            "match_score": bill.get("OcrMatchScore"),
+            "resolved_outlet": bill.get("OcrOutletName"),
+            "outlet_number": bill.get("OcrOutletNumber")
+        },
+        "fuzzy_matching_debug": debug_matching
+    }
+
+
+@app.get("/api/v1/download-master-outlets")
+def download_master_outlets():
+    """Tải trực tiếp file master_outlets.json chuẩn UTF-8."""
+    if not MASTER_OUTLETS_FILE.exists():
+        raise HTTPException(status_code=404, detail="Chưa có file master_outlets.json")
+    return FileResponse(
+        MASTER_OUTLETS_FILE,
+        media_type="application/json",
+        filename="master_outlets.json"
+    )
+
+
 @app.post("/api/v1/sync-outlets")
-def sync_outlets_from_db():
+def sync_outlets_from_db(actor: str = "CRM Admin", source: str = "WEB_ADMIN"):
     """
     API đồng bộ danh mục cửa hàng từ 2 bảng G_Outlet và G_Brand trong MS-SQL:
     - Truy vấn danh mục cửa hàng đang hoạt động (IsActive=1, IsUsed=1)
     - Ghi đè file master_outlets.json chuẩn UTF-8
+    - Ghi vết lịch sử vào sync_history.json
     - Làm mới cache bộ nhớ của OCR Engine ngay lập tức mà không cần restart server
     """
     try:
-        count = db.sync_master_outlets_file()
-        ocr_engine.reload_master_outlets()
+        count = db.sync_master_outlets_file(actor=actor, source=source)
+        try:
+            ocr_engine.reload_master_outlets()
+        except Exception as ocr_err:
+            print(f"[!] Warning: reload_master_outlets failed: {ocr_err}")
         return {
             "success": True,
             "count": count,
-            "message": f"Đã đồng bộ thành công {count} cửa hàng từ bảng G_Outlet & G_Brand vào master_outlets.json!"
+            "actor": actor,
+            "source": source,
+            "message": f"Đã đồng bộ thành công {count} cửa hàng từ MS-SQL vào master_outlets.json!"
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Lỗi đồng bộ danh mục cửa hàng: {str(e)}")
@@ -931,7 +1011,8 @@ def upload_bill_base64(
 
 @app.post("/api/v1/extract-bill")
 async def extract_bill_alias(
-    file: UploadFile = File(...),
+    request: Request,
+    file: Optional[UploadFile] = File(None),
     filename: Optional[str] = Form(None),
     image_number: Optional[str] = Form(None),
     mem_id: Optional[str] = Form(None),
@@ -940,7 +1021,7 @@ async def extract_bill_alias(
 ):
     """
     Endpoint tương thích ngược theo đặc tả CRM Spec (/api/v1/extract-bill):
-    - Nhận ảnh qua multipart/form-data
+    - Hỗ trợ KÉP: Nhận ảnh qua multipart/form-data (trường 'file') HOẶC application/json (chuỗi Base64)
     - Ưu tiên sử dụng tên file do CRM truyền (filename hoặc image_number)
     - Nếu không truyền thì OCR tự động sinh tên file (ocr_YYYYMMDD_HHMMSS_xxxxxx)
     - Kiểm soát trùng lặp từ CRM qua duplicate_action / Header X-Duplicate-Action:
@@ -951,11 +1032,39 @@ async def extract_bill_alias(
     """
     try:
         t0 = time.time()
-        content = await file.read()
+        content_type = request.headers.get("content-type", "")
+        original_fname = "bill_upload.png"
+        
+        # Hỗ trợ nhận Base64 JSON
+        if "application/json" in content_type:
+            try:
+                body = await request.json()
+            except Exception:
+                body = {}
+            raw_b64 = body.get("image") or body.get("bill_image") or body.get("image_base64") or body.get("file")
+            if not raw_b64:
+                raise HTTPException(status_code=400, detail="Không tìm thấy dữ liệu ảnh Base64 trong payload JSON (hỗ trợ các trường: 'image', 'bill_image', 'image_base64')")
+            if "," in raw_b64:
+                raw_b64 = raw_b64.split(",", 1)[1]
+            try:
+                content = base64.b64decode(raw_b64)
+            except Exception as b64_err:
+                raise HTTPException(status_code=400, detail=f"Dữ liệu ảnh Base64 không hợp lệ: {str(b64_err)}")
+            filename = filename or body.get("filename")
+            image_number = image_number or body.get("image_number")
+            mem_id = mem_id or body.get("mem_id")
+            duplicate_action = duplicate_action or body.get("duplicate_action")
+            original_fname = filename or (f"{image_number}.png" if image_number else "base64_upload.png")
+        elif file is not None:
+            content = await file.read()
+            original_fname = file.filename
+        else:
+            raise HTTPException(status_code=400, detail="Thiếu dữ liệu ảnh. Vui lòng gửi file qua multipart/form-data (trường 'file') hoặc JSON Base64 (trường 'image')")
+
         chosen_filename = filename or image_number
         save_path, saved_filename, file_hash = _save_and_validate_image_bytes(
             content,
-            original_filename=file.filename,
+            original_filename=original_fname,
             custom_filename=chosen_filename
         )
         duplicate_bill = db.find_duplicate_bill(file_hash)
@@ -1746,6 +1855,7 @@ tr:hover td { background: rgba(255,255,255,0.02); cursor: pointer; }
     <button class="nav-tab active" data-tab="inspector" id="tab-inspector">🔍 Soi chi tiết (Inspector)</button>
     <button class="nav-tab" data-tab="batch" id="tab-batch">📋 Danh sách tổng hợp</button>
     <button class="nav-tab" data-tab="audit" id="tab-audit">📜 Nhật ký kiểm toán (Auditor)</button>
+    <button class="nav-tab" data-tab="sync" id="tab-sync">⏰ Giám sát Cron & Danh mục</button>
   </div>
 
   <div class="stats-bar">
@@ -1892,6 +2002,46 @@ tr:hover td { background: rgba(255,255,255,0.02); cursor: pointer; }
           </label>
           <input type="text" class="input-box" id="inp-note" placeholder="Nhập lý do điều chỉnh nếu Admin có can thiệp số liệu...">
         </div>
+
+        <!-- 6. Diagnostic & Debug Panel (Thuật toán OCR & So khớp mờ) -->
+        <div class="ocr-debug-container" style="margin-top: 10px; border: 1px dashed #3b82f6; border-radius: 8px; padding: 10px; background: rgba(59, 130, 246, 0.04);">
+          <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;" id="debug-toggle-btn">
+            <span style="font-weight: 700; font-size: 12px; color: #3b82f6; display: flex; align-items: center; gap: 6px;">
+              🔬 Đánh Giá Thuật Toán AI & Bóc Tách (Debug Details)
+            </span>
+            <span id="debug-toggle-icon" style="font-size: 11px; font-weight: 600; color: #3b82f6;">▼ Mở rộng</span>
+          </div>
+
+          <div id="debug-panel-content" style="display: none; margin-top: 10px; font-size: 11px; color: var(--text-main);">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
+              <div style="background: var(--bg-card); padding: 6px 8px; border-radius: 6px; border: 1px solid var(--border);">
+                <div style="color: var(--text-dim); font-size: 10px;">Brand trích xuất (Raw):</div>
+                <div style="font-weight: 600; color: #10b981;" id="dbg-raw-brand">–</div>
+              </div>
+              <div style="background: var(--bg-card); padding: 6px 8px; border-radius: 6px; border: 1px solid var(--border);">
+                <div style="color: var(--text-dim); font-size: 10px;">Outlet trích xuất (Raw):</div>
+                <div style="font-weight: 600; color: #f59e0b;" id="dbg-raw-outlet">–</div>
+              </div>
+            </div>
+
+            <div style="margin-bottom: 8px;">
+              <div style="font-weight: 600; margin-bottom: 4px; color: var(--text-main); font-size: 11px;">
+                🎯 Top ứng viên So Khớp Mờ (Fuzzy Matching Candidates):
+              </div>
+              <div id="dbg-candidates-list" style="display: flex; flex-direction: column; gap: 4px;">
+                <div style="color: var(--text-dim);">Đang tải dữ liệu...</div>
+              </div>
+            </div>
+
+            <div>
+              <div style="font-weight: 600; margin-bottom: 4px; color: var(--text-main); font-size: 11px; display: flex; justify-content: space-between; align-items: center;">
+                <span>📜 VLM Raw JSON Output:</span>
+                <button type="button" class="btn btn-sec" style="padding: 2px 6px; font-size: 10px;" onclick="copyRawJson()">📋 Copy</button>
+              </div>
+              <pre id="dbg-raw-json" style="background: #0f172a; color: #38bdf8; padding: 8px; border-radius: 6px; font-size: 10px; max-height: 140px; overflow-y: auto; white-space: pre-wrap; word-break: break-all; margin: 0;"></pre>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div class="inspector-audit">
@@ -2018,6 +2168,140 @@ tr:hover td { background: rgba(255,255,255,0.02); cursor: pointer; }
           </tbody>
         </table>
       </div>
+    </div>
+  </section>
+
+  <!-- TAB 4: CRON MONITOR & MASTER SYNC DASHBOARD -->
+  <section class="tab-content" id="content-sync" style="display: none; flex-direction: column; width: 100%; height: 100%; overflow: hidden; background: var(--bg-base);">
+    <div style="flex: 1; display: flex; flex-direction: column; overflow-y: auto; padding: 24px 32px; gap: 20px;">
+      
+      <!-- DEV Environment Safety Guard Banner -->
+      <div id="cron-dev-guard-banner" style="display: none; background: rgba(234, 179, 8, 0.12); border: 1px solid rgba(234, 179, 8, 0.4); border-radius: 12px; padding: 16px 22px; align-items: center; gap: 16px; box-shadow: 0 4px 15px rgba(234, 179, 8, 0.08);">
+        <span style="font-size: 28px; line-height: 1;">⚠️</span>
+        <div style="flex: 1;">
+          <div style="font-size: 14px; font-weight: 700; color: #facc15; display: flex; align-items: center; gap: 8px;">
+            <span>CHẾ ĐỘ MÔI TRƯỜNG DEV: TÁC VỤ CRON ĐỊNH KỲ ĐƯỢC BẢO VỆ TẮT TỰ ĐỘNG</span>
+            <span style="background: rgba(234, 179, 8, 0.2); border: 1px solid rgba(234, 179, 8, 0.5); color: #fef08a; padding: 1px 8px; border-radius: 4px; font-size: 10px; font-family: var(--font-mono);">CRON_DISABLED</span>
+          </div>
+          <div style="font-size: 12px; color: #cbd5e1; margin-top: 4px; line-height: 1.5;">
+            Hệ thống phát hiện cấu hình đang ở môi trường <b>DEV (Mac Local)</b>. Theo tiêu chuẩn an toàn, các tác vụ Cron quét bill tự động và đồng bộ CSDL không được phép chạy nền. Báo cáo giám sát Cron Job chỉ khả dụng trên máy chủ <b>PILOT (14.161.34.37:8080)</b> và <b>PRODUCTION</b>.
+          </div>
+        </div>
+      </div>
+
+      <!-- Top Bar / Summary Cards -->
+      <div style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px 24px; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
+        <div>
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <h2 style="font-size: 18px; font-weight: 700; margin: 0; color: var(--text-main);">Giám Sát Tác Vụ Cron & Đồng Bộ Danh Mục (GigaMall)</h2>
+            <span id="sync-env-badge" style="background: rgba(56, 189, 248, 0.15); border: 1px solid rgba(56, 189, 248, 0.4); color: var(--accent); padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; font-family: var(--font-mono);">ENV: --</span>
+            <span id="cron-health-badge" style="background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.4); color: #34d399; padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; font-family: var(--font-mono);">HEALTH: --</span>
+          </div>
+          <div style="font-size: 13px; color: var(--text-muted); margin-top: 4px;">
+            Theo dõi tình trạng thực thi tác vụ Cron quét hóa đơn OCR (15 phút/lần) và xuất dữ liệu Cửa hàng MS-SQL vào <code style="font-family: var(--font-mono); color: var(--accent);">master_outlets.json</code>
+          </div>
+        </div>
+        <div style="display: flex; gap: 10px; align-items: center;">
+          <button id="btn-refresh-all-cron" class="btn btn-sec" style="display: flex; align-items: center; gap: 6px; padding: 9px 14px; font-size: 13px; border-radius: 8px; cursor: pointer;">
+            🔄 Làm mới Báo cáo
+          </button>
+          <a href="/api/v1/download-master-outlets" target="_blank" class="btn btn-sec" style="display: flex; align-items: center; gap: 6px; text-decoration: none; padding: 9px 16px; font-size: 13px; border-radius: 8px;">
+            📥 Tải JSON Outlets
+          </a>
+          <button id="btn-trigger-sync" class="btn" style="background: linear-gradient(135deg, #0284c7, #2563eb); color: #fff; border: none; padding: 9px 20px; font-size: 13px; font-weight: 700; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 14px rgba(2, 132, 199, 0.4); transition: transform 0.1s, opacity 0.2s;">
+            <span id="sync-btn-spinner" style="display: none;">⏳</span>
+            <span id="sync-btn-icon">⚡</span>
+            <span id="sync-btn-text">Kích hoạt Đồng bộ Ngay</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 4 Metrics Cards -->
+      <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;">
+        <!-- Card 1: Sức khỏe Cron Scanner -->
+        <div style="background: var(--bg-surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 18px;">
+          <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Cron Quét Hóa Đơn (15p/lần)</div>
+          <div id="metric-cron-scan-status" style="font-size: 18px; font-weight: 800; color: var(--accent); margin-top: 6px;">--</div>
+          <div id="metric-cron-scan-last" style="font-size: 11px; color: var(--text-dim); margin-top: 4px; font-family: var(--font-mono);">Lần chạy cuối: --</div>
+        </div>
+        <!-- Card 2: Tổng bill quét -->
+        <div style="background: var(--bg-surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 18px;">
+          <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Hóa Đơn Đã Quét (Lịch sử)</div>
+          <div id="metric-cron-total-scanned" style="font-size: 24px; font-weight: 800; color: #38bdf8; font-family: var(--font-mono); margin-top: 6px;">--</div>
+          <div id="metric-cron-success-rate" style="font-size: 11px; color: var(--text-dim); margin-top: 2px;">Thành công: -- | Lỗi/Duyệt tay: --</div>
+        </div>
+        <!-- Card 3: Số Cửa Hàng Master -->
+        <div style="background: var(--bg-surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 18px;">
+          <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Danh Mục Gian Hàng (Master)</div>
+          <div id="metric-total-outlets" style="font-size: 24px; font-weight: 800; color: #a855f7; font-family: var(--font-mono); margin-top: 6px;">--</div>
+          <div id="metric-file-size" style="font-size: 11px; color: var(--text-dim); margin-top: 2px;">-- KB | UTF-8</div>
+        </div>
+        <!-- Card 4: Lần Sync Cửa Hàng Cuối -->
+        <div style="background: var(--bg-surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 18px;">
+          <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Cron Sync Gian Hàng (02:00)</div>
+          <div id="metric-last-status" style="font-size: 18px; font-weight: 700; margin-top: 6px;">--</div>
+          <div id="metric-last-sync" style="font-size: 11px; color: var(--text-dim); margin-top: 4px; font-family: var(--font-mono);">Lần sync cuối: --</div>
+        </div>
+      </div>
+
+      <!-- History Log Card with Sub-tabs -->
+      <div style="flex: 1; display: flex; flex-direction: column; background: var(--bg-surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.2); min-height: 420px;">
+        <div style="padding: 12px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.02);">
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <button id="subtab-btn-scanner" class="btn" style="background: rgba(56, 189, 248, 0.2); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.4); padding: 6px 14px; font-size: 12px; font-weight: 700; border-radius: 6px; cursor: pointer;">
+              ⏰ Lịch Sử Cron Quét OCR (15p/lần)
+            </button>
+            <button id="subtab-btn-sync" class="btn" style="background: transparent; color: var(--text-muted); border: 1px solid var(--border); padding: 6px 14px; font-size: 12px; font-weight: 600; border-radius: 6px; cursor: pointer;">
+              🔄 Lịch Sử Đồng Bộ Danh Mục (02:00 sáng)
+            </button>
+          </div>
+          <span style="font-size: 11px; color: var(--text-dim);">Lưu vết tối đa 100 lần chạy gần nhất</span>
+        </div>
+
+        <!-- Table 1: Cron OCR Scanner History -->
+        <div id="subtab-content-scanner" class="table-wrap" style="flex: 1; overflow-y: auto;">
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 170px;">Thời gian</th>
+                <th style="width: 130px;">Nguồn chạy</th>
+                <th style="width: 90px;">Môi trường</th>
+                <th style="width: 140px;">Trạng thái</th>
+                <th style="width: 110px;">Số bill quét</th>
+                <th style="width: 110px;">Thành công</th>
+                <th style="width: 120px;">Cần duyệt/Lỗi</th>
+                <th style="width: 110px;">Thời lượng</th>
+                <th>Chi tiết / Ghi chú</th>
+              </tr>
+            </thead>
+            <tbody id="cron-scanner-history-tbody">
+              <tr><td colspan="9" style="text-align: center; color: var(--text-dim); padding: 40px;">Đang tải lịch sử quét bill...</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Table 2: Sync Outlets History -->
+        <div id="subtab-content-sync" class="table-wrap" style="flex: 1; overflow-y: auto; display: none;">
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 170px;">Thời gian</th>
+                <th style="width: 130px;">Nguồn chạy</th>
+                <th style="width: 90px;">Môi trường</th>
+                <th style="width: 140px;">Kết quả</th>
+                <th style="width: 120px;">Số cửa hàng</th>
+                <th style="width: 110px;">Thời lượng</th>
+                <th style="width: 130px;">Người/Tác tử</th>
+                <th>Chi tiết / Ghi chú lỗi</th>
+              </tr>
+            </thead>
+            <tbody id="sync-history-tbody">
+              <tr><td colspan="8" style="text-align: center; color: var(--text-dim); padding: 40px;">Đang tải lịch sử đồng bộ...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
     </div>
   </section>
 </main>
@@ -2528,6 +2812,7 @@ function showBill(idx) {
 
   checkDiff(b);
   loadBillAuditLogs(b.BillId);
+  loadBillDebugData(b.BillId);
 }
 
 function applyLockState(b) {
@@ -2787,6 +3072,91 @@ async function loadBillAuditLogs(billId, highlightFirst = false) {
       </div>
     `).join("");
   } catch(e) { console.error(e); }
+}
+
+async function loadBillDebugData(billId) {
+  try {
+    const rawBrandEl = document.getElementById("dbg-raw-brand");
+    const rawOutletEl = document.getElementById("dbg-raw-outlet");
+    const candidatesEl = document.getElementById("dbg-candidates-list");
+    const rawJsonEl = document.getElementById("dbg-raw-json");
+
+    if (!rawBrandEl || !rawOutletEl || !candidatesEl || !rawJsonEl) return;
+
+    candidatesEl.innerHTML = `<div style="color: var(--text-dim); font-size: 11px;">Đang tải thông số thuật toán...</div>`;
+
+    const res = await fetch(`/api/bills/${billId}/ocr-debug`);
+    if (!res.ok) {
+      candidatesEl.innerHTML = `<div style="color: var(--text-dim); font-size: 11px;">Không có thông tin debug cho bill này.</div>`;
+      return;
+    }
+    const data = await res.json();
+
+    const ef = data.extracted_fields || {};
+    rawBrandEl.textContent = ef.raw_brand || "–";
+    rawOutletEl.textContent = ef.raw_outlet || "–";
+
+    let rawOutputDisplay = data.raw_vlm_output || "{}";
+    try {
+      const parsed = JSON.parse(rawOutputDisplay);
+      rawOutputDisplay = JSON.stringify(parsed, null, 2);
+    } catch(e) {}
+    rawJsonEl.textContent = rawOutputDisplay;
+
+    const candList = (data.fuzzy_matching_debug && data.fuzzy_matching_debug.top_candidates) || [];
+    if (!candList.length) {
+      candidatesEl.innerHTML = `<div style="color: var(--text-dim); font-size: 11px;">Không có ứng viên nào khớp vượt ngưỡng.</div>`;
+    } else {
+      candidatesEl.innerHTML = candList.map((c, idx) => {
+        const score = c.score_pct || 0;
+        let badgeColor = "#ef4444";
+        let badgeBg = "rgba(239, 68, 68, 0.1)";
+        if (score >= 75) {
+          badgeColor = "#10b981";
+          badgeBg = "rgba(16, 185, 129, 0.1)";
+        } else if (score >= 50) {
+          badgeColor = "#f59e0b";
+          badgeBg = "rgba(245, 158, 11, 0.1)";
+        }
+        return `
+          <div style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-card); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border); font-size: 11px;">
+            <div style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 70%;">
+              <span style="font-weight: 700; color: #3b82f6;">${idx + 1}. [${c.outlet_number}]</span>
+              <span style="margin-left: 4px;" title="${c.outlet_name}">${c.outlet_name}</span>
+              ${c.brand_name ? `<span style="color: var(--text-dim); font-size: 10px;">(${c.brand_name})</span>` : ''}
+            </div>
+            <span style="font-weight: 700; padding: 2px 6px; border-radius: 10px; background: ${badgeBg}; color: ${badgeColor}; font-size: 10px;">
+              ${score}%
+            </span>
+          </div>
+        `;
+      }).join("");
+    }
+  } catch(err) {
+    console.error("Error loading OCR debug data:", err);
+  }
+}
+
+function copyRawJson() {
+  const text = document.getElementById("dbg-raw-json").innerText;
+  if (!text) return;
+  navigator.clipboard.writeText(text).then(() => {
+    showToast("info", "Đã sao chép", "Đã sao chép VLM Raw JSON vào clipboard!");
+  }).catch(() => {
+    showToast("warning", "Không thể copy", "Trình duyệt chặn clipboard API.");
+  });
+}
+
+// Toggle debug panel
+const toggleDebugBtn = document.getElementById("debug-toggle-btn");
+const panelDebugContent = document.getElementById("debug-panel-content");
+const toggleDebugIcon = document.getElementById("debug-toggle-icon");
+if (toggleDebugBtn && panelDebugContent && toggleDebugIcon) {
+  toggleDebugBtn.addEventListener("click", () => {
+    const isHidden = panelDebugContent.style.display === "none";
+    panelDebugContent.style.display = isHidden ? "block" : "none";
+    toggleDebugIcon.textContent = isHidden ? "▲ Thu gọn" : "▼ Mở rộng";
+  });
 }
 
 // Actions
@@ -3287,6 +3657,7 @@ document.querySelectorAll(".nav-tab").forEach(tab => {
       updatePaginationUI();
     }
     if (target === "audit") renderGlobalAudit();
+    if (target === "sync") renderSyncDashboard();
   });
 });
 
@@ -3557,6 +3928,248 @@ document.getElementById("btn-dup-reject-new").addEventListener("click", async ()
   await loadStats();
   await loadBills();
   if (allBills.length > 0) switchToInspector(0);
+});
+
+// ==================== CRON MONITOR & MASTER SYNC DASHBOARD (ADMIN) ====================
+async function renderSyncDashboard() {
+  const syncTbody = document.getElementById("sync-history-tbody");
+  const scannerTbody = document.getElementById("cron-scanner-history-tbody");
+  const devBanner = document.getElementById("cron-dev-guard-banner");
+  const healthBadge = document.getElementById("cron-health-badge");
+  const envBadge = document.getElementById("sync-env-badge");
+
+  // 1. Tải thông tin File Master Outlets và Lịch sử Sync Outlets
+  try {
+    const res = await fetch("/api/v1/sync-logs");
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const data = await res.json();
+
+    if (envBadge) {
+      envBadge.textContent = "ENV: " + (data.current_environment || "PILOT").toUpperCase();
+    }
+
+    const fi = data.file_info || {};
+    document.getElementById("metric-total-outlets").textContent = (fi.total_outlets || 0) + " cửa hàng";
+    document.getElementById("metric-last-sync").textContent = fi.last_modified ? "Sửa: " + fi.last_modified : "Chưa có dữ liệu";
+    document.getElementById("metric-file-size").textContent = (fi.file_size_kb || 0) + " KB | UTF-8";
+
+    const logs = data.history || [];
+    const lastLog = logs[0];
+    const statusElem = document.getElementById("metric-last-status");
+    if (lastLog) {
+      if (lastLog.status === "SUCCESS") {
+        statusElem.innerHTML = `<span style="color: var(--success);">✓ Thành công</span>`;
+      } else {
+        statusElem.innerHTML = `<span style="color: var(--danger);">✕ Thất bại</span>`;
+      }
+    } else {
+      statusElem.textContent = "Chưa có lịch sử";
+    }
+
+    if (logs.length === 0) {
+      syncTbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--text-dim); padding: 40px;">Chưa có lịch sử đồng bộ nào. Bấm 'Kích hoạt Đồng bộ Ngay' để bắt đầu.</td></tr>`;
+    } else {
+      syncTbody.innerHTML = logs.map(item => {
+        const isSuccess = item.status === "SUCCESS";
+        const statusBadge = isSuccess
+          ? `<span style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4); padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 700;">✓ THÀNH CÔNG</span>`
+          : `<span style="background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.4); padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 700;">✕ THẤT BẠI</span>`;
+
+        const sourceBadge = `<span style="font-family: var(--font-mono); font-size: 11px; color: var(--accent); background: rgba(56, 189, 248, 0.1); padding: 2px 6px; border-radius: 4px;">${item.source || 'N/A'}</span>`;
+        const envText = `<span style="font-family: var(--font-mono); font-size: 11px; color: var(--text-muted);">${(item.environment || '').toUpperCase()}</span>`;
+        const errorContent = item.error_message
+          ? `<div style="color: #f87171; font-family: var(--font-mono); font-size: 11px; white-space: pre-wrap; max-width: 450px; overflow: hidden; text-overflow: ellipsis;" title="${(item.error_message || '').replace(/"/g, '&quot;')}">${item.error_message}</div>`
+          : `<span style="color: var(--text-dim); font-size: 12px;">Đồng bộ bình thường</span>`;
+
+        return `
+          <tr>
+            <td style="font-family: var(--font-mono); font-size: 12px; color: var(--text-muted);">${item.timestamp}</td>
+            <td>${sourceBadge}</td>
+            <td>${envText}</td>
+            <td>${statusBadge}</td>
+            <td style="font-family: var(--font-mono); font-weight: 700; color: ${isSuccess ? 'var(--text-main)' : 'var(--text-dim)'};">${item.count || 0}</td>
+            <td style="font-family: var(--font-mono); font-size: 12px; color: var(--text-dim);">${item.duration_ms || 0} ms</td>
+            <td><b style="font-size: 12px; color: var(--text-main);">${item.actor || 'SYSTEM'}</b></td>
+            <td>${errorContent}</td>
+          </tr>
+        `;
+      }).join("");
+    }
+  } catch (err) {
+    syncTbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--danger); padding: 40px;">Không thể tải lịch sử đồng bộ: ${err.message}</td></tr>`;
+  }
+
+  // 2. Tải Báo cáo Cron Jobs (chỉ hỗ trợ Pilot/Prod; Dev sẽ nhận 403 Forbidden)
+  try {
+    const cronRes = await fetch("/api/v1/admin/cron-report");
+    if (cronRes.status === 403) {
+      // MÔI TRƯỜNG DEV ĐƯỢC BẢO VỆ
+      if (devBanner) devBanner.style.display = "flex";
+      if (healthBadge) {
+        healthBadge.textContent = "DEV_SAFE (CRON TẮT)";
+        healthBadge.style.background = "rgba(234, 179, 8, 0.15)";
+        healthBadge.style.color = "#facc15";
+        healthBadge.style.borderColor = "rgba(234, 179, 8, 0.4)";
+      }
+      document.getElementById("metric-cron-scan-status").innerHTML = `<span style="color: #facc15;">🛡️ Vô hiệu hóa (DEV)</span>`;
+      document.getElementById("metric-cron-scan-last").textContent = "Bảo vệ an toàn dữ liệu";
+      document.getElementById("metric-cron-total-scanned").textContent = "0 bill";
+      document.getElementById("metric-cron-success-rate").textContent = "Không quét tự động trên Dev";
+
+      scannerTbody.innerHTML = `
+        <tr>
+          <td colspan="9" style="text-align: center; padding: 46px 20px;">
+            <div style="font-size: 14px; font-weight: 700; color: #facc15;">⚠️ MÔI TRƯỜNG DEV: TÁC VỤ CRON ĐỊNH KỲ ĐƯỢC TẮT TỰ ĐỘNG</div>
+            <div style="font-size: 12px; color: var(--text-muted); margin-top: 6px; max-width: 600px; margin-left: auto; margin-right: auto; line-height: 1.5;">
+              Theo quy chuẩn an toàn, tiến trình Cron quét hóa đơn không chạy trên máy Mac Dev. Báo cáo số liệu thực tế được quản lý trực tiếp trên máy chủ <b>PILOT (14.161.34.37:8080)</b> và <b>PRODUCTION</b>.
+            </div>
+          </td>
+        </tr>
+      `;
+      return;
+    }
+
+    if (!cronRes.ok) throw new Error("HTTP " + cronRes.status);
+    const cronData = await cronRes.json();
+
+    // MÔI TRƯỜNG PILOT / PROD HOẠT ĐỘNG
+    if (devBanner) devBanner.style.display = "none";
+    if (healthBadge) {
+      const isHealthy = cronData.health_status === "HEALTHY";
+      healthBadge.textContent = "HEALTH: " + cronData.health_status;
+      healthBadge.style.background = isHealthy ? "rgba(16, 185, 129, 0.15)" : "rgba(239, 68, 68, 0.15)";
+      healthBadge.style.color = isHealthy ? "#34d399" : "#f87171";
+      healthBadge.style.borderColor = isHealthy ? "rgba(16, 185, 129, 0.4)" : "rgba(239, 68, 68, 0.4)";
+    }
+
+    const kpi = cronData.kpi || {};
+    const lastScan = kpi.last_scan_run;
+    if (lastScan) {
+      const scanSuccess = lastScan.status === "SUCCESS";
+      document.getElementById("metric-cron-scan-status").innerHTML = scanSuccess
+        ? `<span style="color: var(--success);">✓ Đang chạy tốt</span>`
+        : `<span style="color: var(--warning);">⚠️ Cần chú ý</span>`;
+      document.getElementById("metric-cron-scan-last").textContent = "Chạy: " + lastScan.timestamp + ` (${lastScan.duration_s}s)`;
+    } else {
+      document.getElementById("metric-cron-scan-status").textContent = "Chưa có lượt quét";
+      document.getElementById("metric-cron-scan-last").textContent = "Đang chờ crontab 15p";
+    }
+
+    document.getElementById("metric-cron-total-scanned").textContent = (kpi.total_bills_scanned || 0) + " bill";
+    document.getElementById("metric-cron-success-rate").textContent = `Thành công: ${kpi.total_bills_success || 0} | Duyệt tay/Lỗi: ${kpi.total_bills_failed || 0}`;
+
+    // Render Scanner Table
+    const scanLogs = cronData.scanner_history || [];
+    if (scanLogs.length === 0) {
+      scannerTbody.innerHTML = `<tr><td colspan="9" style="text-align: center; color: var(--text-dim); padding: 40px;">Chưa có đợt quét nào được ghi nhận. Crontab chạy tự động mỗi 15 phút.</td></tr>`;
+    } else {
+      scannerTbody.innerHTML = scanLogs.map(item => {
+        const isSuccess = item.status === "SUCCESS";
+        const statusBadge = isSuccess
+          ? `<span style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4); padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 700;">✓ THÀNH CÔNG</span>`
+          : `<span style="background: rgba(234, 179, 8, 0.15); color: #facc15; border: 1px solid rgba(234, 179, 8, 0.4); padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 700;">⚠️ CẢNH BÁO</span>`;
+
+        const sourceBadge = `<span style="font-family: var(--font-mono); font-size: 11px; color: var(--accent); background: rgba(56, 189, 248, 0.1); padding: 2px 6px; border-radius: 4px;">${item.source || 'CRON_JOB'}</span>`;
+        const envText = `<span style="font-family: var(--font-mono); font-size: 11px; color: var(--text-muted);">${(item.environment || '').toUpperCase()}</span>`;
+        const errDetail = item.error_message
+          ? `<span style="color: #facc15; font-size: 11px;">${item.error_message}</span>`
+          : `<span style="color: var(--text-dim); font-size: 12px;">Bình thường</span>`;
+
+        return `
+          <tr>
+            <td style="font-family: var(--font-mono); font-size: 12px; color: var(--text-muted);">${item.timestamp}</td>
+            <td>${sourceBadge}</td>
+            <td>${envText}</td>
+            <td>${statusBadge}</td>
+            <td style="font-family: var(--font-mono); font-weight: 700; color: var(--text-main);">${item.bills_scanned || 0}</td>
+            <td style="font-family: var(--font-mono); color: var(--success); font-weight: 600;">${item.bills_success || 0}</td>
+            <td style="font-family: var(--font-mono); color: ${(item.bills_failed || 0) > 0 ? '#facc15' : 'var(--text-dim)'};">${item.bills_failed || 0}</td>
+            <td style="font-family: var(--font-mono); font-size: 12px; color: var(--text-dim);">${item.duration_s || 0} s</td>
+            <td>${errDetail}</td>
+          </tr>
+        `;
+      }).join("");
+    }
+  } catch (cronErr) {
+    scannerTbody.innerHTML = `<tr><td colspan="9" style="text-align: center; color: var(--danger); padding: 40px;">Lỗi tải báo cáo Cron: ${cronErr.message}</td></tr>`;
+  }
+}
+
+// Subtab switcher
+const subtabScannerBtn = document.getElementById("subtab-btn-scanner");
+const subtabSyncBtn = document.getElementById("subtab-btn-sync");
+const subtabScannerWrap = document.getElementById("subtab-content-scanner");
+const subtabSyncWrap = document.getElementById("subtab-content-sync");
+
+if (subtabScannerBtn && subtabSyncBtn) {
+  subtabScannerBtn.addEventListener("click", () => {
+    subtabScannerBtn.style.background = "rgba(56, 189, 248, 0.2)";
+    subtabScannerBtn.style.color = "#38bdf8";
+    subtabScannerBtn.style.borderColor = "rgba(56, 189, 248, 0.4)";
+    subtabSyncBtn.style.background = "transparent";
+    subtabSyncBtn.style.color = "var(--text-muted)";
+    subtabSyncBtn.style.borderColor = "var(--border)";
+
+    subtabScannerWrap.style.display = "block";
+    subtabSyncWrap.style.display = "none";
+  });
+
+  subtabSyncBtn.addEventListener("click", () => {
+    subtabSyncBtn.style.background = "rgba(168, 85, 247, 0.2)";
+    subtabSyncBtn.style.color = "#c084fc";
+    subtabSyncBtn.style.borderColor = "rgba(168, 85, 247, 0.4)";
+    subtabScannerBtn.style.background = "transparent";
+    subtabScannerBtn.style.color = "var(--text-muted)";
+    subtabScannerBtn.style.borderColor = "var(--border)";
+
+    subtabScannerWrap.style.display = "none";
+    subtabSyncWrap.style.display = "block";
+  });
+}
+
+// Refresh buttons
+const btnRefreshAllCron = document.getElementById("btn-refresh-all-cron");
+if (btnRefreshAllCron) {
+  btnRefreshAllCron.addEventListener("click", () => {
+    renderSyncDashboard();
+    showToast("info", "Đã làm mới", "Đã cập nhật số liệu giám sát Cron và đồng bộ.");
+  });
+}
+
+// Trigger Sync button
+document.getElementById("btn-trigger-sync").addEventListener("click", async () => {
+  const btn = document.getElementById("btn-trigger-sync");
+  const spinner = document.getElementById("sync-btn-spinner");
+  const icon = document.getElementById("sync-btn-icon");
+  const btnText = document.getElementById("sync-btn-text");
+
+  btn.disabled = true;
+  btn.style.opacity = "0.7";
+  spinner.style.display = "inline-block";
+  icon.style.display = "none";
+  btnText.textContent = "Đang đồng bộ từ CSDL...";
+
+  try {
+    const actorName = getCurrentUser() || "CRM Admin";
+    const res = await fetch(`/api/v1/sync-outlets?actor=${encodeURIComponent(actorName)}&source=WEB_ADMIN`, {
+      method: "POST"
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.detail || "Lỗi đồng bộ");
+    }
+    showToast("success", "Đồng bộ thành công", data.message || "Đã xuất cửa hàng vào master_outlets.json");
+    await renderSyncDashboard();
+  } catch (err) {
+    showToast("danger", "Lỗi đồng bộ", err.message);
+    await renderSyncDashboard();
+  } finally {
+    btn.disabled = false;
+    btn.style.opacity = "1";
+    spinner.style.display = "none";
+    icon.style.display = "inline-block";
+    btnText.textContent = "Kích hoạt Đồng bộ Ngay";
+  }
 });
 
 init();

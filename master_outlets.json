@@ -1,5 +1,32 @@
 [
   {
+    "outlet_id": 4572,
+    "outlet_number": "ANBT",
+    "outlet_name": " An Nhật Beauty House",
+    "brand_id": 3494,
+    "brand_number": "ANBT",
+    "brand_name": " An Nhật Beauty House",
+    "outlet_address": "B1"
+  },
+  {
+    "outlet_id": 4366,
+    "outlet_number": "CASIOGIGAMALL",
+    "outlet_name": " Casio Anh Khuê",
+    "brand_id": 2345,
+    "brand_number": "CASIO GIGAMALL",
+    "brand_name": "CASIO ANH KHUÊ",
+    "outlet_address": "L1"
+  },
+  {
+    "outlet_id": 4565,
+    "outlet_number": "9S",
+    "outlet_name": "9 Sạch",
+    "brand_id": 3488,
+    "brand_number": "9S",
+    "brand_name": "9 Sạch",
+    "outlet_address": "L5"
+  },
+  {
     "outlet_id": 3164,
     "outlet_number": "ADIDAS",
     "outlet_name": "ADIDAS",
@@ -54,6 +81,33 @@
     "outlet_address": "L1-11"
   },
   {
+    "outlet_id": 4442,
+    "outlet_number": "ALPHAGAMES",
+    "outlet_name": "ALPHA GAMES",
+    "brand_id": 3419,
+    "brand_number": "AG",
+    "brand_name": "ALPHA GAMES",
+    "outlet_address": "B1"
+  },
+  {
+    "outlet_id": 4405,
+    "outlet_number": "ANNHAT",
+    "outlet_name": "AN NHẬT FOOTMASSAGE",
+    "brand_id": 3382,
+    "brand_number": "ANNHAT",
+    "brand_name": "AN NHẬT FOOTMASSAGE",
+    "outlet_address": null
+  },
+  {
+    "outlet_id": 4545,
+    "outlet_number": "Onsen",
+    "outlet_name": "An Nhật Onsen ",
+    "brand_id": 3474,
+    "brand_number": "Onsen ",
+    "brand_name": "An Nhật Onsen",
+    "outlet_address": "L4"
+  },
+  {
     "outlet_id": 3180,
     "outlet_number": "ANPHUOC",
     "outlet_name": "AN PHƯỚC ",
@@ -61,6 +115,15 @@
     "brand_number": "ANPHUOC",
     "brand_name": "AN PHƯỚC",
     "outlet_address": "L1-26"
+  },
+  {
+    "outlet_id": 4448,
+    "outlet_number": "ANTA",
+    "outlet_name": "ANTA",
+    "brand_id": 3380,
+    "brand_number": "ANTA",
+    "brand_name": "ANTA",
+    "outlet_address": "L1"
   },
   {
     "outlet_id": 3266,
@@ -72,6 +135,15 @@
     "outlet_address": null
   },
   {
+    "outlet_id": 4434,
+    "outlet_number": "AUTOBOT",
+    "outlet_name": "AUTOBOT",
+    "brand_id": 3410,
+    "brand_number": "AUTOBOT",
+    "brand_name": "AUTOBOT",
+    "outlet_address": "B1"
+  },
+  {
     "outlet_id": 4242,
     "outlet_number": "BAA",
     "outlet_name": "BAA BABY",
@@ -79,6 +151,15 @@
     "brand_number": "BAA Baby",
     "brand_name": "BAA Baby",
     "outlet_address": "L2"
+  },
+  {
+    "outlet_id": 4441,
+    "outlet_number": "BB",
+    "outlet_name": "Baby Boss",
+    "brand_id": 3418,
+    "brand_number": "BB",
+    "brand_name": "Baby Boss",
+    "outlet_address": "L5"
   },
   {
     "outlet_id": 4310,
@@ -99,6 +180,33 @@
     "outlet_address": "L2-09-19"
   },
   {
+    "outlet_id": 4479,
+    "outlet_number": "Bingxue",
+    "outlet_name": "Bingxue",
+    "brand_id": 3458,
+    "brand_number": "Bingxue",
+    "brand_name": "Bingxue",
+    "outlet_address": "L4"
+  },
+  {
+    "outlet_id": 4430,
+    "outlet_number": "BTQM",
+    "outlet_name": "BÒ TƠ QUÁN MỘC",
+    "brand_id": 3406,
+    "brand_number": "BTQM",
+    "brand_name": "BÒ TƠ QUÁN MỘC",
+    "outlet_address": "L5"
+  },
+  {
+    "outlet_id": 4432,
+    "outlet_number": "BS",
+    "outlet_name": "BOOSTER",
+    "brand_id": 3409,
+    "brand_number": "BS",
+    "brand_name": "BOOSTER",
+    "outlet_address": "L4"
+  },
+  {
     "outlet_id": 3230,
     "outlet_number": "BREADTALK",
     "outlet_name": "BREADTALK",
@@ -108,6 +216,15 @@
     "outlet_address": "L2-02"
   },
   {
+    "outlet_id": 4404,
+    "outlet_number": "BF",
+    "outlet_name": "BT FASHION",
+    "brand_id": 1033,
+    "brand_number": "SSC",
+    "brand_name": "_Sense City_",
+    "outlet_address": null
+  },
+  {
     "outlet_id": 21,
     "outlet_number": "CALIFORNIA",
     "outlet_name": "CALIFORNIA FITNESS & YOGA",
@@ -115,6 +232,15 @@
     "brand_number": "CALIFONIA",
     "brand_name": "CALIFONIA & FITNESS",
     "outlet_address": "L4-01"
+  },
+  {
+    "outlet_id": 4423,
+    "outlet_number": "CR",
+    "outlet_name": "Candy Crush",
+    "brand_id": 3399,
+    "brand_number": "CR",
+    "brand_name": "Candy Crush",
+    "outlet_address": "L4"
   },
   {
     "outlet_id": 3176,
@@ -135,6 +261,15 @@
     "outlet_address": null
   },
   {
+    "outlet_id": 4561,
+    "outlet_number": "Cashion",
+    "outlet_name": "CASHION",
+    "brand_id": 3484,
+    "brand_number": "Cashion",
+    "brand_name": "CASHION",
+    "outlet_address": "L1"
+  },
+  {
     "outlet_id": 1072,
     "outlet_number": "CGV",
     "outlet_name": "CGV",
@@ -153,6 +288,15 @@
     "outlet_address": "L5-06"
   },
   {
+    "outlet_id": 4364,
+    "outlet_number": "CHANGTHAI",
+    "outlet_name": "CHANG THAI",
+    "brand_id": 2343,
+    "brand_number": "CHANG THAI",
+    "brand_name": "CHANG THAI",
+    "outlet_address": null
+  },
+  {
     "outlet_id": 3260,
     "outlet_number": "CHEERS",
     "outlet_name": "CHEERS",
@@ -160,6 +304,33 @@
     "brand_number": "CHEERS",
     "brand_name": "CHEERS",
     "outlet_address": null
+  },
+  {
+    "outlet_id": 4319,
+    "outlet_number": "CHEESECOFFEE",
+    "outlet_name": "CHEESE COFFEE",
+    "brand_id": 2304,
+    "brand_number": "CHEESECOFFEE",
+    "brand_name": "CHEESECOFFEE",
+    "outlet_address": null
+  },
+  {
+    "outlet_id": 4350,
+    "outlet_number": "CILLIE",
+    "outlet_name": "CILLIE",
+    "brand_id": 2333,
+    "brand_number": "CILLIE",
+    "brand_name": "CILLIE",
+    "outlet_address": "L4"
+  },
+  {
+    "outlet_id": 4414,
+    "outlet_number": "Cp",
+    "outlet_name": "CLOUD POT",
+    "brand_id": 3390,
+    "brand_number": "Cp",
+    "brand_name": "CLOUD POT",
+    "outlet_address": "T5"
   },
   {
     "outlet_id": 1118,
@@ -171,6 +342,42 @@
     "outlet_address": "L2-01, L3-01"
   },
   {
+    "outlet_id": 4480,
+    "outlet_number": "COLORBOX",
+    "outlet_name": "COLORBOX",
+    "brand_id": 3459,
+    "brand_number": "COLORBOX",
+    "brand_name": "COLORBOX",
+    "outlet_address": "L4"
+  },
+  {
+    "outlet_id": 4471,
+    "outlet_number": "HS",
+    "outlet_name": "Cơm Niêu Hải Sư Singapore ",
+    "brand_id": 3449,
+    "brand_number": "HS",
+    "brand_name": "Cơm Niêu Hải Sư Singapore",
+    "outlet_address": "L5"
+  },
+  {
+    "outlet_id": 4568,
+    "outlet_number": "Coolmate",
+    "outlet_name": "Coolmate",
+    "brand_id": 3491,
+    "brand_number": "Coolmate",
+    "brand_name": "Coolmate",
+    "outlet_address": "L4"
+  },
+  {
+    "outlet_id": 4570,
+    "outlet_number": "COSMO",
+    "outlet_name": "COSMO LADY",
+    "brand_id": 3492,
+    "brand_number": "COSMO",
+    "brand_name": "COSMO LADY",
+    "outlet_address": null
+  },
+  {
     "outlet_id": 3196,
     "outlet_number": "COUPLETX",
     "outlet_name": "COUPLE TX",
@@ -178,6 +385,15 @@
     "brand_number": "COUPLE TX",
     "brand_name": "COUPLE TX",
     "outlet_address": "L2-08-5"
+  },
+  {
+    "outlet_id": 4351,
+    "outlet_number": "CROCS",
+    "outlet_name": "CROCS",
+    "brand_id": 2334,
+    "brand_number": "CROCS",
+    "brand_name": "CROCS",
+    "outlet_address": "L1"
   },
   {
     "outlet_id": 3263,
@@ -195,6 +411,24 @@
     "brand_id": 2353,
     "brand_number": "DATXANH",
     "brand_name": "DATXANH",
+    "outlet_address": null
+  },
+  {
+    "outlet_id": 4472,
+    "outlet_number": "DT",
+    "outlet_name": "Deethai Togo",
+    "brand_id": 3450,
+    "brand_number": "DT",
+    "brand_name": "Deethai Togo",
+    "outlet_address": null
+  },
+  {
+    "outlet_id": 4325,
+    "outlet_number": "DELTA",
+    "outlet_name": "DELTA",
+    "brand_id": 2310,
+    "brand_number": "DELTA",
+    "brand_name": "DELTA",
     "outlet_address": null
   },
   {
@@ -216,6 +450,69 @@
     "outlet_address": "B1"
   },
   {
+    "outlet_id": 4438,
+    "outlet_number": "Dreamland",
+    "outlet_name": "Dreamland",
+    "brand_id": 3415,
+    "brand_number": "Dreamland",
+    "brand_name": "Dreamland",
+    "outlet_address": "L4"
+  },
+  {
+    "outlet_id": 4383,
+    "outlet_number": "DUNLOPILLO",
+    "outlet_name": "DUNLOPILLO",
+    "brand_id": 2363,
+    "brand_number": "DUNLOPILLO",
+    "brand_name": "DUNLOPILLO",
+    "outlet_address": null
+  },
+  {
+    "outlet_id": 4445,
+    "outlet_number": "EL",
+    "outlet_name": "Elmich",
+    "brand_id": 3423,
+    "brand_number": "EL",
+    "brand_name": "Elmich",
+    "outlet_address": "L2"
+  },
+  {
+    "outlet_id": 4569,
+    "outlet_number": "EVP",
+    "outlet_name": "EURO VIỆT (PÓECILIE)",
+    "brand_id": 1046,
+    "brand_number": "EUROVIET",
+    "brand_name": "EURO VIET ",
+    "outlet_address": "L3"
+  },
+  {
+    "outlet_id": 4370,
+    "outlet_number": "EVERSWEET",
+    "outlet_name": "EVER SWEET",
+    "brand_id": 2348,
+    "brand_number": "EVER SWEET",
+    "brand_name": "EVER SWEET",
+    "outlet_address": null
+  },
+  {
+    "outlet_id": 4440,
+    "outlet_number": "FH",
+    "outlet_name": "F.House ",
+    "brand_id": 3417,
+    "brand_number": "FH",
+    "brand_name": "F.House ",
+    "outlet_address": "L4"
+  },
+  {
+    "outlet_id": 4385,
+    "outlet_number": "FACEINCH",
+    "outlet_name": "FACEINCH",
+    "brand_id": 2365,
+    "brand_number": "FI",
+    "brand_name": "FACEINCH",
+    "outlet_address": null
+  },
+  {
     "outlet_id": 3163,
     "outlet_number": "FAHASA",
     "outlet_name": "FAHASA",
@@ -223,6 +520,24 @@
     "brand_number": "FAHASA",
     "brand_name": "FAHASA",
     "outlet_address": "L3-05"
+  },
+  {
+    "outlet_id": 4581,
+    "outlet_number": "FHLINE",
+    "outlet_name": "FASHION LINE",
+    "brand_id": 1033,
+    "brand_number": "SSC",
+    "brand_name": "_Sense City_",
+    "outlet_address": "L2"
+  },
+  {
+    "outlet_id": 4494,
+    "outlet_number": "FLASHBOX",
+    "outlet_name": "FLASH BOX",
+    "brand_id": 3463,
+    "brand_number": "FB",
+    "brand_name": "FLASH BOX",
+    "outlet_address": "L1"
   },
   {
     "outlet_id": 3148,
@@ -234,6 +549,15 @@
     "outlet_address": "L3-08"
   },
   {
+    "outlet_id": 4562,
+    "outlet_number": "FujiLux",
+    "outlet_name": "FUJILUX",
+    "brand_id": 3485,
+    "brand_number": "FujiLux ",
+    "brand_name": "FUJILUX",
+    "outlet_address": "L3"
+  },
+  {
     "outlet_id": 4248,
     "outlet_number": "GALBIHOUSE",
     "outlet_name": "GALBI HOUSE",
@@ -241,6 +565,51 @@
     "brand_number": "GALBI HOUSE",
     "brand_name": "GALBI HOUSE",
     "outlet_address": "L4-09B L4-09C"
+  },
+  {
+    "outlet_id": 4437,
+    "outlet_number": "GHL",
+    "outlet_name": "Gangnam Tanghulu",
+    "brand_id": 3414,
+    "brand_number": "GHL",
+    "brand_name": "Gangnam Tanghulu",
+    "outlet_address": "L4"
+  },
+  {
+    "outlet_id": 4567,
+    "outlet_number": "Garmin",
+    "outlet_name": "Garmin",
+    "brand_id": 3490,
+    "brand_number": "Garmin",
+    "brand_name": "Garmin",
+    "outlet_address": "L2"
+  },
+  {
+    "outlet_id": 4459,
+    "outlet_number": "GBO",
+    "outlet_name": "GBO Vietnam ",
+    "brand_id": 3439,
+    "brand_number": "GBO",
+    "brand_name": "GBO",
+    "outlet_address": "B1"
+  },
+  {
+    "outlet_id": 4388,
+    "outlet_number": "GG",
+    "outlet_name": "GIGAMALL",
+    "brand_id": 3446,
+    "brand_number": "GGM",
+    "brand_name": "GIGAMALL",
+    "outlet_address": "L7"
+  },
+  {
+    "outlet_id": 4398,
+    "outlet_number": "GB",
+    "outlet_name": "GLAM BEAUTIQUE",
+    "brand_id": 3375,
+    "brand_number": "GB",
+    "brand_name": "GLAM BEAUTIQUE",
+    "outlet_address": "B1"
   },
   {
     "outlet_id": 1055,
@@ -288,6 +657,42 @@
     "outlet_address": "L5_07"
   },
   {
+    "outlet_id": 4475,
+    "outlet_number": "HANCLOSET",
+    "outlet_name": "HAN CLOSET",
+    "brand_id": 3453,
+    "brand_number": "HANCLOSET",
+    "brand_name": "HAN CLOSET",
+    "outlet_address": "L4"
+  },
+  {
+    "outlet_id": 4580,
+    "outlet_number": "HANH",
+    "outlet_name": "HẠNH",
+    "brand_id": 1033,
+    "brand_number": "SSC",
+    "brand_name": "_Sense City_",
+    "outlet_address": "L2"
+  },
+  {
+    "outlet_id": 4465,
+    "outlet_number": "HAPAS",
+    "outlet_name": "HAPAS",
+    "brand_id": 3441,
+    "brand_number": "HAPAS",
+    "brand_name": "HAPAS",
+    "outlet_address": "L2"
+  },
+  {
+    "outlet_id": 4446,
+    "outlet_number": "HARU",
+    "outlet_name": "Harufilm",
+    "brand_id": 3424,
+    "brand_number": "HARU",
+    "brand_name": "Harufilm",
+    "outlet_address": "B1"
+  },
+  {
     "outlet_id": 3226,
     "outlet_number": "HIGHLANDS",
     "outlet_name": "HIGHLANDS COFFEE",
@@ -297,6 +702,42 @@
     "outlet_address": "L1-22"
   },
   {
+    "outlet_id": 4406,
+    "outlet_number": "HIKOSENCARA",
+    "outlet_name": "HIKOSEN CARA",
+    "brand_id": 3383,
+    "brand_number": "HIKOSENCARA",
+    "brand_name": "HIKOSEN CARA",
+    "outlet_address": null
+  },
+  {
+    "outlet_id": 4428,
+    "outlet_number": "HMK",
+    "outlet_name": "HMKeyewear",
+    "brand_id": 3404,
+    "brand_number": "HMK",
+    "brand_name": "HMK",
+    "outlet_address": "L2"
+  },
+  {
+    "outlet_id": 4413,
+    "outlet_number": "HKHQ",
+    "outlet_name": "Hồng Kông Hội Quán",
+    "brand_id": 3389,
+    "brand_number": "HKHQ",
+    "brand_name": "Hồng Kông Hội Quán",
+    "outlet_address": "B1"
+  },
+  {
+    "outlet_id": 4354,
+    "outlet_number": "HULU",
+    "outlet_name": "HULU",
+    "brand_id": 2337,
+    "brand_number": "HULU GIGAMALL",
+    "brand_name": "HuLu",
+    "outlet_address": null
+  },
+  {
     "outlet_id": 3198,
     "outlet_number": "IBASIC",
     "outlet_name": "IBASIC",
@@ -304,6 +745,24 @@
     "brand_number": "SSC",
     "brand_name": "_Sense City_",
     "outlet_address": "L2-09-10"
+  },
+  {
+    "outlet_id": 4477,
+    "outlet_number": "IEF",
+    "outlet_name": "IEF",
+    "brand_id": 3456,
+    "brand_number": "IEF",
+    "brand_name": "IEF",
+    "outlet_address": "L2"
+  },
+  {
+    "outlet_id": 4402,
+    "outlet_number": "IJC",
+    "outlet_name": "IJC",
+    "brand_id": 3486,
+    "brand_number": "IJC",
+    "brand_name": "IJC",
+    "outlet_address": "L1"
   },
   {
     "outlet_id": 32,
@@ -324,6 +783,15 @@
     "outlet_address": "B1-01B3"
   },
   {
+    "outlet_id": 4389,
+    "outlet_number": "JoSeon",
+    "outlet_name": "JoSeon",
+    "brand_id": 2367,
+    "brand_number": "JS",
+    "brand_name": "JoSeon",
+    "outlet_address": "L2"
+  },
+  {
     "outlet_id": 1073,
     "outlet_number": "JP",
     "outlet_name": "JP GAME & BOWLING",
@@ -331,6 +799,42 @@
     "brand_number": "JP BOWLING",
     "brand_name": "_JP BOWLING GAME CENTER_",
     "outlet_address": "L6"
+  },
+  {
+    "outlet_id": 4362,
+    "outlet_number": "JPSportGame",
+    "outlet_name": "JP Sport Games",
+    "brand_id": 2342,
+    "brand_number": "JPSportGame ",
+    "brand_name": "JPSportGame ",
+    "outlet_address": "L7"
+  },
+  {
+    "outlet_id": 4563,
+    "outlet_number": "JPBOWLING",
+    "outlet_name": "JPBOWLING",
+    "brand_id": 1032,
+    "brand_number": "GG",
+    "brand_name": "_GoldenGate_",
+    "outlet_address": null
+  },
+  {
+    "outlet_id": 4579,
+    "outlet_number": "JUHIDO",
+    "outlet_name": "JUHIDO",
+    "brand_id": 2355,
+    "brand_number": "JUHIDO",
+    "brand_name": "JUHIDO",
+    "outlet_address": "L4"
+  },
+  {
+    "outlet_id": 4546,
+    "outlet_number": "KN",
+    "outlet_name": "KEM NEWZEALAND",
+    "brand_id": 3475,
+    "brand_number": "KN",
+    "brand_name": "KEM NEWZEALAND",
+    "outlet_address": "L5"
   },
   {
     "outlet_id": 1059,
@@ -351,6 +855,15 @@
     "outlet_address": "L5-15"
   },
   {
+    "outlet_id": 4396,
+    "outlet_number": "KZ",
+    "outlet_name": "KIDZOOONA",
+    "brand_id": 3374,
+    "brand_number": "KZ",
+    "brand_name": "KIDZOOONA",
+    "outlet_address": "L3"
+  },
+  {
     "outlet_id": 1061,
     "outlet_number": "KINGBBQ",
     "outlet_name": "KINGBBQ",
@@ -358,6 +871,33 @@
     "brand_number": "REDSUN",
     "brand_name": "_Redsun ITI Corporation_",
     "outlet_address": "L5-05"
+  },
+  {
+    "outlet_id": 4439,
+    "outlet_number": "KK",
+    "outlet_name": "K-Kqabaegi ",
+    "brand_id": 3416,
+    "brand_number": "K-K",
+    "brand_name": "K-Kwabaegi ",
+    "outlet_address": "B1"
+  },
+  {
+    "outlet_id": 4469,
+    "outlet_number": "KKV",
+    "outlet_name": "KKV",
+    "brand_id": 3447,
+    "brand_number": "KKV",
+    "brand_name": "KKV",
+    "outlet_address": "L2"
+  },
+  {
+    "outlet_id": 4419,
+    "outlet_number": "KS",
+    "outlet_name": "KOHAKU SUSHI",
+    "brand_id": 3395,
+    "brand_number": "KS",
+    "brand_name": "KOHAKU SUSHI",
+    "outlet_address": "T5"
   },
   {
     "outlet_id": 17,
@@ -369,6 +909,24 @@
     "outlet_address": "B1-02"
   },
   {
+    "outlet_id": 4429,
+    "outlet_number": "Kokoro",
+    "outlet_name": "Kokoro Tea",
+    "brand_id": 3405,
+    "brand_number": "Kokoro",
+    "brand_name": "Kokoro Tea",
+    "outlet_address": "L5"
+  },
+  {
+    "outlet_id": 4474,
+    "outlet_number": "KQJ",
+    "outlet_name": "KQJ",
+    "brand_id": 3452,
+    "brand_number": "KQJ",
+    "brand_name": "KQJ",
+    "outlet_address": "L4"
+  },
+  {
     "outlet_id": 4286,
     "outlet_number": "KYMDAN",
     "outlet_name": "KYMDAN",
@@ -376,6 +934,24 @@
     "brand_number": "KYMDAN",
     "brand_name": "KYMDAN",
     "outlet_address": null
+  },
+  {
+    "outlet_id": 4538,
+    "outlet_number": "LC",
+    "outlet_name": "LA CAMIE",
+    "brand_id": 3470,
+    "brand_number": "LC",
+    "brand_name": "LA CAMIE",
+    "outlet_address": "L4"
+  },
+  {
+    "outlet_id": 4444,
+    "outlet_number": "LVQ",
+    "outlet_name": "Lã Vọng Quán",
+    "brand_id": 3422,
+    "brand_number": "LVQ",
+    "brand_name": "Lã Vọng Quán",
+    "outlet_address": "B1"
   },
   {
     "outlet_id": 3179,
@@ -387,6 +963,42 @@
     "outlet_address": "L1-25"
   },
   {
+    "outlet_id": 4386,
+    "outlet_number": "LIFEFOURCUTS",
+    "outlet_name": "LIFE FOUR CUTS",
+    "brand_id": 2340,
+    "brand_number": "LFC",
+    "brand_name": "LIFE FOUR CUTS",
+    "outlet_address": "L4"
+  },
+  {
+    "outlet_id": 4427,
+    "outlet_number": "LITIBABY",
+    "outlet_name": "LITIBABY",
+    "brand_id": 3403,
+    "brand_number": "LITIBABY",
+    "brand_name": "LITIBABY",
+    "outlet_address": "L4"
+  },
+  {
+    "outlet_id": 4461,
+    "outlet_number": "LIZD",
+    "outlet_name": "LIZD",
+    "brand_id": 3440,
+    "brand_number": "LIZD",
+    "brand_name": "LIZD",
+    "outlet_address": "L4"
+  },
+  {
+    "outlet_id": 4455,
+    "outlet_number": "LW",
+    "outlet_name": "LUNA WASH",
+    "brand_id": 3434,
+    "brand_number": "LW",
+    "brand_name": "LUNA WASH",
+    "outlet_address": "B2"
+  },
+  {
     "outlet_id": 1063,
     "outlet_number": "MANWAH",
     "outlet_name": "MANWAH",
@@ -396,6 +1008,42 @@
     "outlet_address": "L5-13"
   },
   {
+    "outlet_id": 4326,
+    "outlet_number": "MARC",
+    "outlet_name": "MARC",
+    "brand_id": 3465,
+    "brand_number": "MARC",
+    "brand_name": "MARC",
+    "outlet_address": null
+  },
+  {
+    "outlet_id": 4422,
+    "outlet_number": "MU",
+    "outlet_name": "Marukame Udon",
+    "brand_id": 3398,
+    "brand_number": "MU",
+    "brand_name": "Marukame Udon",
+    "outlet_address": "L5"
+  },
+  {
+    "outlet_id": 4544,
+    "outlet_number": "MASI",
+    "outlet_name": "MASI",
+    "brand_id": 3473,
+    "brand_number": "MASI",
+    "brand_name": "MASI",
+    "outlet_address": "L7"
+  },
+  {
+    "outlet_id": 4578,
+    "outlet_number": "MasterKeys",
+    "outlet_name": "MasterKeys",
+    "brand_id": 3495,
+    "brand_number": "MasterKeys",
+    "brand_name": "MasterKeys",
+    "outlet_address": "B2"
+  },
+  {
     "outlet_id": 3181,
     "outlet_number": "MATVIET",
     "outlet_name": "MẮT VIỆT",
@@ -403,6 +1051,15 @@
     "brand_number": "MATVIET",
     "brand_name": "MẮT VIỆT",
     "outlet_address": "L1-28"
+  },
+  {
+    "outlet_id": 4468,
+    "outlet_number": "MK",
+    "outlet_name": "MATSUKIYO",
+    "brand_id": 3445,
+    "brand_number": "MK",
+    "brand_name": "Matsukiyo",
+    "outlet_address": "L2"
   },
   {
     "outlet_id": 3259,
@@ -423,6 +1080,15 @@
     "outlet_address": "L1-07"
   },
   {
+    "outlet_id": 4537,
+    "outlet_number": "ML",
+    "outlet_name": "MeiLove",
+    "brand_id": 3469,
+    "brand_number": "ML",
+    "brand_name": "MeiLove",
+    "outlet_address": "L5"
+  },
+  {
     "outlet_id": 3150,
     "outlet_number": "SPM",
     "outlet_name": "MINISO",
@@ -432,6 +1098,69 @@
     "outlet_address": "L2-03"
   },
   {
+    "outlet_id": 4571,
+    "outlet_number": "MS",
+    "outlet_name": "MIX SNACK",
+    "brand_id": 3493,
+    "brand_number": "MS",
+    "brand_name": "MIX SNACK",
+    "outlet_address": "L4"
+  },
+  {
+    "outlet_id": 4368,
+    "outlet_number": "MIXUE",
+    "outlet_name": "MIXUE",
+    "brand_id": 2346,
+    "brand_number": "MIXUE",
+    "brand_name": "MIXUE",
+    "outlet_address": "L2"
+  },
+  {
+    "outlet_id": 4457,
+    "outlet_number": "MLB",
+    "outlet_name": "MLB",
+    "brand_id": 3436,
+    "brand_number": "MLB",
+    "brand_name": "MLB",
+    "outlet_address": "L1"
+  },
+  {
+    "outlet_id": 4564,
+    "outlet_number": "MOKIDO",
+    "outlet_name": "MOKIDO",
+    "brand_id": 3487,
+    "brand_number": "MOKIDO",
+    "brand_name": "MOKIDO",
+    "outlet_address": "L4"
+  },
+  {
+    "outlet_id": 4392,
+    "outlet_number": "MOSS",
+    "outlet_name": "MOSS",
+    "brand_id": 2370,
+    "brand_number": "MOSS",
+    "brand_name": "MOSS",
+    "outlet_address": null
+  },
+  {
+    "outlet_id": 4431,
+    "outlet_number": "MRDIY",
+    "outlet_name": "MR DIY",
+    "brand_id": 3408,
+    "brand_number": "MRDIY",
+    "brand_name": "MR DIY",
+    "outlet_address": "L2"
+  },
+  {
+    "outlet_id": 4375,
+    "outlet_number": "MR",
+    "outlet_name": "Mr. Dakgalbi",
+    "brand_id": 2352,
+    "brand_number": "Mr. Dakgalbi",
+    "brand_name": "Mr. Dakgalbi",
+    "outlet_address": "B1"
+  },
+  {
     "outlet_id": 3134,
     "outlet_number": "MYKINGDOM",
     "outlet_name": "MY KINGDOM",
@@ -439,6 +1168,24 @@
     "brand_number": "MYKINGDOM",
     "brand_name": "MY KINGDOM",
     "outlet_address": "L4-12"
+  },
+  {
+    "outlet_id": 4426,
+    "outlet_number": "BN",
+    "outlet_name": "N’Rona",
+    "brand_id": 3402,
+    "brand_number": "BN",
+    "brand_name": "N’Rona Buffet",
+    "outlet_address": "L3"
+  },
+  {
+    "outlet_id": 4547,
+    "outlet_number": "VINCENT",
+    "outlet_name": "NHÀ HÀNG VINCENT",
+    "brand_id": 3477,
+    "brand_number": "VINCENT",
+    "brand_name": "NHÀ HÀNG VINCENT",
+    "outlet_address": "L8"
   },
   {
     "outlet_id": 3165,
@@ -459,6 +1206,42 @@
     "outlet_address": "L2-09-05"
   },
   {
+    "outlet_id": 4456,
+    "outlet_number": "OLV",
+    "outlet_name": "OLV",
+    "brand_id": 3435,
+    "brand_number": "OLV",
+    "brand_name": "OLV",
+    "outlet_address": "L2"
+  },
+  {
+    "outlet_id": 4379,
+    "outlet_number": "OPATRA",
+    "outlet_name": "OPATRA",
+    "brand_id": 2358,
+    "brand_number": "OPATRA",
+    "brand_name": "OPATRA",
+    "outlet_address": "L1"
+  },
+  {
+    "outlet_id": 4548,
+    "outlet_number": "OWNDAYS",
+    "outlet_name": "OWNDAYS",
+    "brand_id": 3478,
+    "brand_number": "OWNDAYS",
+    "brand_name": "OWNDAYS",
+    "outlet_address": "L1"
+  },
+  {
+    "outlet_id": 4467,
+    "outlet_number": "Pp",
+    "outlet_name": "Papparoti ",
+    "brand_id": 3443,
+    "brand_number": "Pp",
+    "brand_name": "Pp",
+    "outlet_address": "L3"
+  },
+  {
     "outlet_id": 3237,
     "outlet_number": "PASSIO",
     "outlet_name": "PASSIO",
@@ -468,6 +1251,15 @@
     "outlet_address": "L1"
   },
   {
+    "outlet_id": 4543,
+    "outlet_number": "PHOTOTIME",
+    "outlet_name": "PHOTOTIME",
+    "brand_id": 3472,
+    "brand_number": "PT",
+    "brand_name": "PHOTO TIME",
+    "outlet_address": "L6"
+  },
+  {
     "outlet_id": 1041,
     "outlet_number": "PHUCLONG",
     "outlet_name": "PHUC LONG",
@@ -475,6 +1267,15 @@
     "brand_number": "PHUCLONG",
     "brand_name": "PHUC LONG",
     "outlet_address": "L4-08B"
+  },
+  {
+    "outlet_id": 4466,
+    "outlet_number": "PT",
+    "outlet_name": "Pi Thái",
+    "brand_id": 3442,
+    "brand_number": "PT",
+    "brand_name": "PT",
+    "outlet_address": "L4"
   },
   {
     "outlet_id": 4309,
@@ -513,6 +1314,15 @@
     "outlet_address": "L1-29"
   },
   {
+    "outlet_id": 4382,
+    "outlet_number": "POONGSAN",
+    "outlet_name": "POONGSAN",
+    "brand_id": 2362,
+    "brand_number": "PS",
+    "brand_name": "POONGSAN",
+    "outlet_address": null
+  },
+  {
     "outlet_id": 3274,
     "outlet_number": "GIGAMALL",
     "outlet_name": "QUẦY INFORMATION GIGAMALL",
@@ -540,6 +1350,15 @@
     "outlet_address": "L6-03-04"
   },
   {
+    "outlet_id": 4450,
+    "outlet_number": "SA",
+    "outlet_name": "Saizeriya",
+    "brand_id": 3427,
+    "brand_number": "SA",
+    "brand_name": "Saizeriya",
+    "outlet_address": "L4"
+  },
+  {
     "outlet_id": 3177,
     "outlet_number": "SAMSONITE",
     "outlet_name": "SAMSONITE",
@@ -549,6 +1368,33 @@
     "outlet_address": "L1-18"
   },
   {
+    "outlet_id": 4458,
+    "outlet_number": "SS",
+    "outlet_name": "Samsung",
+    "brand_id": 3437,
+    "brand_number": "SS",
+    "brand_name": "SS",
+    "outlet_address": "L1"
+  },
+  {
+    "outlet_id": 4416,
+    "outlet_number": "SAYAKA",
+    "outlet_name": "SAYAKA",
+    "brand_id": 3392,
+    "brand_number": "SAYAKA",
+    "brand_name": "SAYAKA",
+    "outlet_address": "L5"
+  },
+  {
+    "outlet_id": 4582,
+    "outlet_number": "SR",
+    "outlet_name": "SayRose",
+    "brand_id": 3496,
+    "brand_number": "SR",
+    "brand_name": "SayRose",
+    "outlet_address": "L4"
+  },
+  {
     "outlet_id": 3127,
     "outlet_number": "SENSECITY",
     "outlet_name": "SENSE CITY",
@@ -556,6 +1402,15 @@
     "brand_number": "SSC",
     "brand_name": "_Sense City_",
     "outlet_address": "L1 L2 L3"
+  },
+  {
+    "outlet_id": 4411,
+    "outlet_number": "SHUYI",
+    "outlet_name": "SHUYI",
+    "brand_id": 3388,
+    "brand_number": "SHUYI",
+    "brand_name": "SHUYI",
+    "outlet_address": "T1"
   },
   {
     "outlet_id": 3187,
@@ -612,6 +1467,15 @@
     "outlet_address": "L1-23"
   },
   {
+    "outlet_id": 4376,
+    "outlet_number": "SUBINBBQ",
+    "outlet_name": "SUBIN BBQ",
+    "brand_id": 2351,
+    "brand_number": "SUBIN BBQ",
+    "brand_name": "SUBIN BBQ",
+    "outlet_address": null
+  },
+  {
     "outlet_id": 1045,
     "outlet_number": "SUKIYA",
     "outlet_name": "SUKIYA",
@@ -648,6 +1512,15 @@
     "outlet_address": null
   },
   {
+    "outlet_id": 4482,
+    "outlet_number": "TT",
+    "outlet_name": "T&T",
+    "brand_id": 3460,
+    "brand_number": "T&T",
+    "brand_name": "T&T",
+    "outlet_address": null
+  },
+  {
     "outlet_id": 3222,
     "outlet_number": "TAJ",
     "outlet_name": "TAJ",
@@ -664,6 +1537,24 @@
     "brand_number": "TEXAS",
     "brand_name": "TEXAS CHICKEN",
     "outlet_address": "L1-02"
+  },
+  {
+    "outlet_id": 4367,
+    "outlet_number": "THAIEXPRESS",
+    "outlet_name": "THAI EXPRESS",
+    "brand_id": 2240,
+    "brand_number": "THAI EXPRESS",
+    "brand_name": "THAI EXPRESS",
+    "outlet_address": null
+  },
+  {
+    "outlet_id": 4332,
+    "outlet_number": "THAIMARKET",
+    "outlet_name": "THAI MARKET",
+    "brand_id": 2317,
+    "brand_number": "THAI MARKET ",
+    "brand_name": "THAI MARKET",
+    "outlet_address": "L4"
   },
   {
     "outlet_id": 3184,
@@ -684,6 +1575,15 @@
     "outlet_address": null
   },
   {
+    "outlet_id": 4470,
+    "outlet_number": "TL",
+    "outlet_name": "Tian Long",
+    "brand_id": 3448,
+    "brand_number": "TL",
+    "brand_name": "Tian Long",
+    "outlet_address": "L5"
+  },
+  {
     "outlet_id": 1068,
     "outlet_number": "TINIWORLD",
     "outlet_name": "TINIWORLD",
@@ -700,6 +1600,33 @@
     "brand_number": "TISSOT",
     "brand_name": "TISSOT",
     "outlet_address": "L1-40"
+  },
+  {
+    "outlet_id": 4560,
+    "outlet_number": "TLJ",
+    "outlet_name": "TL Jewelry",
+    "brand_id": 3483,
+    "brand_number": "TLJ",
+    "brand_name": "TL Jewelry",
+    "outlet_address": "L2"
+  },
+  {
+    "outlet_id": 4400,
+    "outlet_number": "UNIQLO",
+    "outlet_name": "UNIQLO",
+    "brand_id": 3377,
+    "brand_number": "UNIQLO",
+    "brand_name": "UNIQLO",
+    "outlet_address": "T1"
+  },
+  {
+    "outlet_id": 4495,
+    "outlet_number": "VANGOGH",
+    "outlet_name": "VAN GOGH",
+    "brand_id": 3468,
+    "brand_number": "TempBrands",
+    "brand_name": "Temp brands",
+    "outlet_address": "L8"
   },
   {
     "outlet_id": 4257,
@@ -720,6 +1647,24 @@
     "outlet_address": null
   },
   {
+    "outlet_id": 4313,
+    "outlet_number": "VstyleGG",
+    "outlet_name": "VSTYLE",
+    "brand_id": 2297,
+    "brand_number": "VSTYLE",
+    "brand_name": "VSTYLE",
+    "outlet_address": "1"
+  },
+  {
+    "outlet_id": 4476,
+    "outlet_number": "Watsons",
+    "outlet_name": "WATSONS",
+    "brand_id": 3455,
+    "brand_number": "Watsons",
+    "brand_name": "Watsons",
+    "outlet_address": "L4"
+  },
+  {
     "outlet_id": 3270,
     "outlet_number": "WRAPNROLL",
     "outlet_name": "WRAP & ROLL",
@@ -727,5 +1672,68 @@
     "brand_number": "WRAP&ROLL",
     "brand_name": "WRAP & ROLL",
     "outlet_address": "L3"
+  },
+  {
+    "outlet_id": 4412,
+    "outlet_number": "wulao",
+    "outlet_name": "WULAO",
+    "brand_id": 3387,
+    "brand_number": "WULAO",
+    "brand_name": "WULAO",
+    "outlet_address": "T5"
+  },
+  {
+    "outlet_id": 4341,
+    "outlet_number": "XFT",
+    "outlet_name": "XING FU TANG",
+    "brand_id": 2326,
+    "brand_number": "XFT",
+    "brand_name": "XINGFUTANG",
+    "outlet_address": "L5"
+  },
+  {
+    "outlet_id": 4433,
+    "outlet_number": "Xtep",
+    "outlet_name": "Xtep",
+    "brand_id": 3407,
+    "brand_number": "Xtep",
+    "brand_name": "Xtep",
+    "outlet_address": "L1"
+  },
+  {
+    "outlet_id": 4541,
+    "outlet_number": "YK",
+    "outlet_name": "Yakimono",
+    "brand_id": 3471,
+    "brand_number": "YK",
+    "brand_name": "Yakimono",
+    "outlet_address": "L5"
+  },
+  {
+    "outlet_id": 4551,
+    "outlet_number": "YOGURT",
+    "outlet_name": "YOGURT",
+    "brand_id": 3457,
+    "brand_number": "YOGURT",
+    "brand_name": "YOGURT",
+    "outlet_address": null
+  },
+  {
+    "outlet_id": 4583,
+    "outlet_number": "Yogur",
+    "outlet_name": "Yogurt Wing ",
+    "brand_id": 3457,
+    "brand_number": "YOGURT",
+    "brand_name": "YOGURT",
+    "outlet_address": "L4"
+  },
+  {
+    "outlet_id": 4566,
+    "outlet_number": "ZARA",
+    "outlet_name": "ZARA (VICTORIA SECRET)",
+    "brand_id": 3489,
+    "brand_number": "ZARA",
+    "brand_name": "ZARA & VICTORIA",
+    "outlet_address": null
   }
 ]
